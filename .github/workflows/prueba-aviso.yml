@@ -1,0 +1,16 @@
+name: Prueba de aviso
+
+# Manda un aviso de prueba al teléfono (ntfy) para confirmar que el secreto NTFY_TOPIC está bien puesto.
+on:
+  workflow_dispatch:
+
+jobs:
+  aviso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then echo "::error::Falta el secreto NTFY_TOPIC"; exit 1; fi
+          curl -sf "https://ntfy.sh/$NTFY_TOPIC?title=TIGRE%20conectado&tags=tiger&click=https://osvaldoalvarez0113-source.github.io/TIGRE/" -d "Si ves esto, los avisos de TIGRE ya te llegan al teléfono." && echo "enviado"
