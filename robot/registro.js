@@ -150,7 +150,7 @@ function registroSenal(j, s, ahora, ligaNombre) {
     ? 'Kalshi ' + Math.round(probs('k', s.antes.c)[s.lado] * 100) + '% · DraftKings ' + Math.round(pa[s.lado] * 100) + '%'
     : (s.unidad === 'línea'
       ? (tipo === 'sp' ? 'línea ' + fmtL(lineaLado('sp', s.antes.l, s.lado)) + ' → ' + fmtL(l) : 'línea ' + s.antes.l + ' → ' + s.ahora.l)
-      : cuotaTxt(tipo, s.antes.c, s.lado) + ' → ' + cuotaTxt(tipo, s.ahora.c, s.lado) + (s.ahora.l !== null && s.ahora.l !== undefined ? ' (línea ' + fmtL(l) + ')' : ''));
+      : cuotaTxt(tipo, s.antes.c, s.lado) + ' → ' + cuotaTxt(tipo, s.ahora.c, s.lado) + (s.ahora.l !== null && s.ahora.l !== undefined ? ' (línea ' + (tipo === 'sp' ? fmtL(l) : l) + ')' : ''));
   const r = {
     id: s.clave, t: ahora, dep: j.dep, liga: ligaNombre, jid: j.id, ts: j.ts, partido: j.a.ab + ' @ ' + j.h.ab,
     tipo: s.tipo, mk: s.mk, mt: tipo, lado: s.lado, mag: s.mag, unidad: s.unidad, nivel: s.nivel,

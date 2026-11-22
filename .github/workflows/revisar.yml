@@ -1,0 +1,36 @@
+name: Revisar con juegos terminados
+
+# Prueba manual: con juegos YA terminados revisa que el cierre oficial y el boxscore se lean bien. No guarda nada.
+on:
+  workflow_dispatch:
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: |
+          cat > /tmp/r.js <<'JS'
+          const F = require(process.cwd() + '/robot/fuentes.js'), M = require(process.cwd() + '/robot/medir.js'), R = require(process.cwd() + '/robot/registro.js');
+          (async () => {
+            for (const dep of ['nba', 'nhl', 'nfl', 'eng']) {
+              const evs = (await F.bajarScoreboard(dep, Date.now() - 864e5)).concat(await F.bajarScoreboard(dep, Date.now())).filter(e => e.fin).slice(0, 3);
+              for (const ev of evs) {
+                const o = await F.bajarOdds(dep, ev.id);
+                const box = dep === 'eng' ? null : await F.bajarBox(dep, ev.id);
+                const ids = box ? Object.keys(box) : [];
+                const conDato = box ? ids.filter(i => Object.values(box[i]).some(v => v !== null)).length : 0;
+                console.log(dep + ' ' + ev.a.ab + ' ' + ev.as + ' @ ' + ev.h.ab + ' ' + ev.hs + ' · cierre ' + JSON.stringify(o && o.cierre) + ' · abre ml ' + JSON.stringify(o && o.ml && o.ml.abre) + ' · box ' + ids.length + ' jugadores (' + conDato + ' con datos) ej ' + JSON.stringify(box && box[ids[0]]));
+                if (o && o.cierre) {
+                  const j = R.nuevoJuego(ev, dep); j.cierre = {}; Object.keys(o.cierre).forEach(k => { R.anotar(j, k, k, 0, o.cierre[k]); j.cierre[k] = o.cierre[k]; });
+                  console.log('   calibración: ' + JSON.stringify(M.filasCalibracion(j, box)));
+                }
+              }
+            }
+          })().catch(e => { console.log('ERROR ' + e.stack); process.exit(1); });
+          JS
+          node /tmp/r.js
