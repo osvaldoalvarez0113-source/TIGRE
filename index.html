@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TIGRE">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icono-180.png">
+<title>TIGRE · lectura de líneas</title>
+<style>
+:root{--bg:#0b0b0d;--card:#151518;--card2:#1c1c21;--line:#2a2a31;--tx:#f2f0ea;--mut:#9a978f;--oro:#f59e0b;--naranja:#fb923c;--good:#34d399;--bad:#f87171;--mid:#fbbf24;--azul:#60a5fa}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+body{padding:env(safe-area-inset-top) 0 calc(76px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#0b0b0d 70%,rgba(11,11,13,0));padding:14px 16px 10px}
+.marca{display:flex;align-items:center;gap:10px}
+.marca .logo{width:38px;height:38px;border-radius:11px;background:conic-gradient(from 200deg,#f59e0b,#fb923c,#111 40%,#f59e0b 55%,#111 70%,#fb923c);display:grid;place-items:center;font-weight:900;color:#0b0b0d;font-size:20px;box-shadow:0 0 18px rgba(245,158,11,.35)}
+.marca h1{margin:0;font-size:22px;letter-spacing:.12em;font-weight:900}
+.marca small{display:block;color:var(--mut);font-size:12px;letter-spacing:0}
+.estado{margin-top:8px;font-size:12.5px;color:var(--mut);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.punto{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good)}
+.punto.viejo{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+main{padding:0 14px}
+.vista{display:none}.vista.on{display:block;animation:entra .25s ease}
+@keyframes entra{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--oro);margin:20px 2px 8px}
+.chips{display:flex;gap:7px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--tx);padding:7px 12px;border-radius:999px;font-size:13px}
+.chip.on{background:var(--oro);color:#111;border-color:var(--oro);font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px;margin:9px 0}
+.sen{position:relative;overflow:hidden}
+.sen:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--oro)}
+.sen.rapido:before{background:var(--naranja)}.sen.kalshi:before{background:var(--azul)}
+.fila{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.meta{color:var(--mut);font-size:12.5px}
+.txt{font-size:16.5px;font-weight:700;margin:4px 0 2px}
+.desc{font-size:14px;color:#d6d3cb}
+.mag{flex:none;font-weight:800;color:var(--oro);font-size:14px}
+.res{font-weight:800}.res.gana{color:var(--good)}.res.pierde{color:var(--bad)}.res.push,.res.nula{color:var(--mut)}
+.vacio{color:var(--mut);text-align:center;padding:26px 10px;font-size:14px}
+.juego .eq{font-weight:700;font-size:15.5px}
+.mk{display:grid;grid-template-columns:76px 1fr 1fr 58px;gap:6px;align-items:center;font-size:13.5px;padding:7px 0;border-top:1px solid var(--line)}
+.mk:first-of-type{border-top:0}
+.mk .n{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.mk .ab{color:var(--mut)}.mk .ah{font-weight:700}
+.sube{color:var(--good)}.baja{color:var(--bad)}
+svg.spark{width:58px;height:22px}
+details{margin-top:6px}summary{color:var(--oro);font-size:13px;cursor:pointer;padding:4px 0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--mut);font-weight:600;text-align:right;padding:6px 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 4px;border-top:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+.tabla{overflow-x:auto}
+.nota{color:var(--mut);font-size:12.5px;margin-top:8px}
+.aviso{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:14px;padding:11px 13px;font-size:13.5px;margin:10px 0}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.grande{font-size:28px;font-weight:900;letter-spacing:-.02em}
+.resumen{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.resumen .card{margin:0;text-align:center;padding:11px 6px}
+.resumen .meta{font-size:11.5px}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:9;display:flex;justify-content:space-around;background:rgba(18,18,21,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:8px 6px calc(8px + env(safe-area-inset-bottom))}
+nav button{flex:1;background:none;border:0;color:var(--mut);font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0}
+nav button span{font-size:21px;filter:grayscale(1);opacity:.7}
+nav button.on{color:var(--oro)}nav button.on span{filter:none;opacity:1}
+p{margin:6px 0}
+.lista li{margin:6px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="marca"><div class="logo">🐯</div><div><h1>TIGRE</h1><small>Lectura de líneas · DraftKings + Kalshi</small></div></div>
+  <div class="estado" id="estado"><span class="punto"></span><span>Cargando…</span></div>
+</header>
+<main>
+  <section class="vista on" id="v-senales"></section>
+  <section class="vista" id="v-juegos"></section>
+  <section class="vista" id="v-medir"></section>
+  <section class="vista" id="v-info"></section>
+</main>
+<nav>
+  <button class="on" data-v="senales"><span>🎯</span>Señales</button>
+  <button data-v="juegos"><span>📊</span>Líneas</button>
+  <button data-v="medir"><span>🧪</span>Medición</button>
+  <button data-v="info"><span>📖</span>Cómo funciona</button>
+</nav>
+<script>
+'use strict';
+const BASE = 'https://raw.githubusercontent.com/osvaldoalvarez0113-source/TIGRE/datos/';
+const D = {}; let FILTRO = 'todas', PROPS = false;
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const hora = ts => new Date(ts).toLocaleString('es-US', { timeZone: 'America/Chicago', weekday: 'short', hour: 'numeric', minute: '2-digit' });
+const hace = ts => { const m = Math.round((Date.now() - ts) / 60000); return m < 60 ? 'hace ' + m + ' min' : (m < 1440 ? 'hace ' + Math.round(m / 60) + ' h' : 'hace ' + Math.round(m / 1440) + ' d'); };
+const cuota = v => v == null ? '—' : (v > 0 ? '+' : '') + v;
+const ICON = { rapido: '⚡', acumulado: '📈', kalshi: '🔀' };
+const NOMT = { rapido: 'Rápido (2 h)', acumulado: 'Desde la apertura', kalshi: 'Kalshi vs casa' };
+const magTxt = s => (s.unidad === 'línea' ? s.mag + ' de línea' : '+' + s.mag + ' pts');
+const pct = v => v == null ? '—' : v.toFixed(1) + '%';
+const sig = v => v == null ? '—' : '<span class="' + (v > 0 ? 'pos' : (v < 0 ? 'neg' : '')) + '">' + (v > 0 ? '+' : '') + v.toFixed(1) + '%</span>';
+
+async function cargar(f) { try { const r = await fetch(BASE + f + '?v=' + Math.floor(Date.now() / 3e5)); return r.ok ? await r.json() : null; } catch (e) { return null; } }
+
+async function inicio() {
+  const [hoy, sen, med, hist, est] = await Promise.all(['hoy.json', 'senales-recientes.json', 'medicion.json', 'historia.json', 'estado.json'].map(cargar));
+  Object.assign(D, { hoy, sen: sen || [], med, hist, est });
+  pintarEstado(); pintarSenales(); pintarJuegos(); pintarMedicion(); pintarInfo();
+}
+function pintarEstado() {
+  const e = D.est;
+  if (!e) { $('#estado').innerHTML = '<span class="punto viejo"></span><span>Todavía no hay datos: el robot corre cada 30 minutos.</span>'; return; }
+  const t = Date.parse(e.ultima), viejo = Date.now() - t > 75 * 60000, u = e.ultimaVuelta || {};
+  $('#estado').innerHTML = '<span class="punto' + (viejo ? ' viejo' : '') + '"></span><span>Última vuelta ' + hace(t) + ' · ' + (u.fotografiados || 0) + ' juegos vigilados' + (viejo ? ' · <b style="color:var(--bad)">el robot está atrasado</b>' : '') + '</span>';
+}
+function tarjetaSenal(s, juego) {
+  const res = s.res ? '<span class="res ' + s.res + '">' + ({ gana: '✓ Ganó', pierde: '✗ Perdió', push: '= Push', nula: '— Nula' }[s.res]) + '</span>' : '';
+  const clv = s.res && s.clvSigno !== undefined ? ' · cierre ' + (s.clvSigno > 0 ? '<span class="pos">a favor</span>' : (s.clvSigno < 0 ? '<span class="neg">en contra</span>' : 'igual')) : '';
+  return '<div class="card sen ' + s.tipo + '"><div class="fila"><span class="meta">' + ICON[s.tipo] + ' ' + NOMT[s.tipo] + ' · ' + esc(s.liga) + ' · ' + esc(s.partido) + '</span><span class="mag">' + magTxt(s) + '</span></div>' +
+    '<div class="txt">' + esc(s.txt) + '</div><div class="desc">' + esc(s.desc) + '</div>' +
+    '<div class="fila" style="margin-top:6px"><span class="meta">Cuota al saltar: <b style="color:var(--tx)">' + cuota(s.c) + '</b> · ' + hora(s.ts) + '</span>' + res + '</div>' +
+    (s.res ? '<div class="meta" style="margin-top:3px">' + esc(s.marcador || '') + clv + '</div>' : '') + '</div>';
+}
+function pintarSenales() {
+  const ahora = Date.now();
+  const pasa = s => (FILTRO === 'todas' || s.tipo === FILTRO) && (PROPS || s.mt !== 'prop');
+  const activas = D.sen.filter(s => !s.res && s.ts > ahora && pasa(s));
+  const enJuego = D.sen.filter(s => !s.res && s.ts <= ahora && pasa(s));
+  const hechas = D.sen.filter(s => s.res && pasa(s)).slice(0, 60);
+  const chip = (v, t) => '<button class="chip' + (FILTRO === v ? ' on' : '') + '" data-f="' + v + '">' + t + '</button>';
+  let h = '<div class="chips">' + chip('todas', 'Todas') + chip('rapido', '⚡ Rápido') + chip('acumulado', '📈 Apertura') + chip('kalshi', '🔀 Kalshi') +
+    '<button class="chip' + (PROPS ? ' on' : '') + '" data-p="1">👤 Props ' + (PROPS ? 'sí' : 'no') + '</button></div>';
+  h += '<h2>Antes del juego (' + activas.length + ')</h2>' + (activas.length ? activas.sort((a, b) => b.t - a.t).map(s => tarjetaSenal(s)).join('') : '<div class="vacio">No hay señales vivas ahora mismo. El tigre espera.</div>');
+  if (enJuego.length) h += '<h2>En juego (' + enJuego.length + ')</h2>' + enJuego.map(s => tarjetaSenal(s)).join('');
+  h += '<h2>Resueltas (últimos 4 días)</h2>' + (hechas.length ? hechas.map(s => tarjetaSenal(s)).join('') : '<div class="vacio">Todavía no se ha resuelto ninguna.</div>');
+  h += '<p class="nota">Una señal NO es un pick: es un movimiento del mercado que se está midiendo. Mira la pestaña 🧪 Medición antes de jugar nada.</p>';
+  $('#v-senales').innerHTML = h;
+  $('#v-senales').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTRO = b.dataset.f; pintarSenales(); });
+  $('#v-senales').querySelector('[data-p]').onclick = () => { PROPS = !PROPS; pintarSenales(); };
+}
+function spark(serie) {
+  const v = (serie || []).filter(x => x[1] != null); if (v.length < 2) return '';
+  const ps = v.map(x => x[1]), mn = Math.min(...ps), mx = Math.max(...ps), r = Math.max(mx - mn, 0.01);
+  const pts = v.map((x, i) => (i / (v.length - 1) * 56 + 1).toFixed(1) + ',' + (21 - (x[1] - mn) / r * 20).toFixed(1)).join(' ');
+  const col = ps[ps.length - 1] >= ps[0] ? 'var(--good)' : 'var(--bad)';
+  return '<svg class="spark" viewBox="0 0 58 22"><polyline fill="none" stroke="' + col + '" stroke-width="1.8" points="' + pts + '"/></svg>';
+}
+function filaMercado(g, k, m) {
+  const p = m.p, po = m.po;
+  const linea = (x, lado) => x == null ? '' : (m.t === 'sp' ? (lado ? -x : x) : x);
+  const f = v => (v > 0 ? '+' : '') + v;
+  let nom, ab, ah;
+  if (m.t === 'ml') { nom = 'Ganador'; const i = m.ahora.c.length === 3 ? [0, 2] : [0, 1]; ab = m.abre ? g.h.ab + ' ' + cuota(m.abre.c[0]) : '—'; ah = g.h.ab + ' ' + cuota(m.ahora.c[0]); }
+  else if (m.t === 'sp') { nom = 'Hándicap'; ab = m.abre ? g.h.ab + ' ' + f(m.abre.l) : '—'; ah = g.h.ab + ' ' + f(m.ahora.l) + ' <span class="meta">' + cuota(m.ahora.c[0]) + '</span>'; }
+  else if (m.t === 'tot') { nom = 'Total'; ab = m.abre ? m.abre.l : '—'; ah = m.ahora.l + ' <span class="meta">Más ' + cuota(m.ahora.c[0]) + '</span>'; }
+  else if (m.t === 'k') { nom = 'Kalshi'; ab = '—'; ah = g.h.ab + ' ' + Math.round(m.ahora.c[0]) + '¢'; }
+  else return '';
+  let flecha = '';
+  if (p && po) { const d = (p[0] - po[0]) * 100; if (Math.abs(d) >= 0.5) flecha = ' <span class="' + (d > 0 ? 'sube' : 'baja') + '">' + (d > 0 ? '▲' : '▼') + Math.abs(d).toFixed(1) + '</span>'; }
+  return '<div class="mk"><span class="n">' + nom + '</span><span class="ab">' + ab + '</span><span class="ah">' + ah + flecha + '</span>' + spark(m.serie) + '</div>';
+}
+function pintarJuegos() {
+  const js = (D.hoy && D.hoy.juegos) || [];
+  if (!js.length) { $('#v-juegos').innerHTML = '<div class="vacio">Sin juegos vigilados ahora mismo.</div>'; return; }
+  let h = '<p class="nota">Apertura de la casa → ahora. ▲▼ = cuánto subió o bajó la probabilidad del local (o del Más) en puntos.</p>';
+  let liga = '';
+  js.forEach(g => {
+    if (g.liga !== liga) { liga = g.liga; h += '<h2>' + esc(liga) + '</h2>'; }
+    const props = Object.keys(g.m).filter(k => g.m[k].t === 'prop').map(k => g.m[k]);
+    const estado = g.st === 'pre' ? hora(g.ts) : (g.st === 'in' ? '🔴 ' + esc(g.det) : esc(g.det) + ' · ' + esc(g.a.ab) + ' ' + g.as + ' - ' + g.hs + ' ' + esc(g.h.ab));
+    h += '<div class="card juego"><div class="fila"><span class="eq">' + esc(g.a.n) + ' @ ' + esc(g.h.n) + '</span><span class="meta">' + estado + '</span></div>' +
+      '<div class="mk" style="border:0;padding-bottom:0"><span></span><span class="meta">Apertura</span><span class="meta">Ahora</span><span></span></div>' +
+      ['ml', 'sp', 'tot', 'k'].filter(k => g.m[k]).map(k => filaMercado(g, k, g.m[k])).join('') +
+      (g.senales.length ? '<div class="meta" style="margin-top:6px">🎯 ' + g.senales.length + ' señal' + (g.senales.length > 1 ? 'es' : '') + ': ' + g.senales.slice(0, 3).map(s => ICON[s.tipo] + ' ' + esc(s.txt)).join(' · ') + '</div>' : '') +
+      (props.length ? '<details><summary>👤 Props que se movieron (' + props.length + ')</summary>' + props.sort((a, b) => Math.abs(b.p[0] - b.po[0]) - Math.abs(a.p[0] - a.po[0])).slice(0, 25).map(m =>
+        '<div class="mk"><span class="n" style="text-transform:none">' + esc(m.n || '') + '</span><span class="ab">' + m.abre.l + ' (' + cuota(m.abre.c[0]) + ')</span><span class="ah">' + m.ahora.l + ' (' + cuota(m.ahora.c[0]) + ')</span><span class="meta">' + esc(m.k) + '</span></div>').join('') + '</details>' : '') +
+      '</div>';
+  });
+  $('#v-juegos').innerHTML = h;
+}
+function tabla(filas, cols) {
+  if (!filas || !filas.length) return '<div class="vacio">Sin datos todavía.</div>';
+  return '<div class="tabla"><table><tr>' + cols.map(c => '<th>' + c[0] + '</th>').join('') + '</tr>' + filas.map(f => '<tr>' + cols.map(c => '<td>' + c[1](f) + '</td>').join('') + '</tr>').join('') + '</table></div>';
+}
+const COLS_SEN = [['Señal', f => esc(f.nombre)], ['N', f => f.n], ['Gana', f => pct(f.gana)], ['Prometía', f => pct(f.promete)], ['ROI', f => sig(f.roi)], ['En contra', f => sig(f.roiContra)], ['CLV +', f => pct(f.clvFavor)]];
+function pintarMedicion() {
+  const m = D.med; let h = '';
+  const n = m && m.total ? m.total.n : 0;
+  h += '<h2>Tus señales</h2>';
+  if (!n) h += '<div class="aviso">Todavía no hay señales resueltas. Cada señal se mide cuando termina su juego. Con menos de 300 resueltas los porcentajes saltan mucho: <b>no apuestes plata real por esta tabla todavía</b>.</div>';
+  else {
+    const t = m.total;
+    h += (n < 300 ? '<div class="aviso">Van ' + n + ' señales resueltas. Hasta 300–500 los números todavía bailan (margen ±' + (t.margen || '?') + ' pts).</div>' : '') +
+      '<div class="resumen"><div class="card"><div class="grande">' + n + '</div><div class="meta">resueltas</div></div><div class="card"><div class="grande">' + pct(t.gana) + '</div><div class="meta">aciertan (prometían ' + pct(t.promete) + ')</div></div><div class="card"><div class="grande">' + sig(t.roi) + '</div><div class="meta">rendimiento</div></div></div>';
+    h += '<h2>Por tipo de señal</h2>' + tabla(m.porTipo, COLS_SEN);
+    h += '<h2>Por mercado</h2>' + tabla(m.porMercado, COLS_SEN);
+    h += '<h2>Tipo × mercado</h2>' + tabla(m.porTipoMercado, COLS_SEN);
+    h += '<h2>Por fuerza del movimiento</h2>' + tabla(m.porNivel, COLS_SEN);
+    h += '<h2>Por tramo de probabilidad</h2>' + tabla(m.porTramo, COLS_SEN);
+    h += '<h2>Por deporte</h2>' + tabla(m.porDeporte, COLS_SEN);
+    h += '<p class="nota"><b>Gana</b> = % de aciertos sin contar push. <b>Prometía</b> = lo que decía la cuota (sin margen) en el momento de la señal: si Gana queda por encima de Prometía con muchas señales, ahí hay algo. <b>ROI</b> = apostando 1 a la cuota de la señal. <b>En contra</b> = apostando al otro lado. <b>CLV +</b> = % de veces que el cierre terminó mejor para quien entró en la señal.</p>';
+  }
+  const cal = m && m.calibracion ? Object.values(m.calibracion) : [];
+  if (cal.length) {
+    h += '<h2>¿Cuánto acierta cada cuota? (juegos propios)</h2>';
+    cal.forEach(c => { h += '<div class="card"><b>' + esc(c.nombre) + '</b> <span class="meta">· ' + c.n + ' mercados al cierre</span>' + tabla(c.tramos.filter(x => x.n), [['Favorito', x => x.tramo], ['N', x => x.n], ['Promete', x => pct(x.promete)], ['Gana', x => pct(x.gana)], ['±', x => x.margen == null ? '—' : x.margen]]) + '</div>'; });
+  }
+  const H = D.hist;
+  if (H && H.todos) {
+    const t = H.todos;
+    h += '<h2>Estudio histórico · ' + t.juegos.toLocaleString('es-US') + ' juegos</h2>';
+    h += '<p class="nota">Cierres de DraftKings que ya guarda ODDX (MLB desde 2023; NBA, NHL y NFL de esta temporada). Solo el ganador.</p>';
+    h += '<div class="card"><b>¿Cuánto acierta la cuota de cierre?</b>' + tabla(t.calibracion.filter(x => x.n), [['Favorito', x => x.tramo], ['N', x => x.n.toLocaleString('es-US')], ['Promete', x => pct(x.promete)], ['Gana', x => pct(x.gana)], ['±', x => x.margen]]) +
+      '<p class="nota">Si Gana ≈ Promete (dentro del ±), el cierre está bien puesto: no hay ventaja en apostar por apostar.</p></div>';
+    h += '<div class="card"><b>Cuando la línea se mueve de la apertura al cierre</b>' + tabla(t.movimiento.filter(x => x.n), [['Se movió', x => x.tramo], ['N', x => x.n.toLocaleString('es-US')], ['Gana', x => pct(x.gana)], ['Temprano', x => sig(x.roiTemprano)], ['Tarde', x => sig(x.roiTarde)], ['En contra', x => sig(x.roiContra)]]) +
+      '<p class="nota"><b>Temprano</b> = entrar a la cuota de apertura al lado que DESPUÉS subió (no se puede saber de antemano: muestra dónde vive el valor). <b>Tarde</b> = seguir el movimiento a la cuota de cierre. <b>En contra</b> = el otro lado al cierre.</p></div>';
+    Object.keys(H.deportes || {}).forEach(d => {
+      const x = H.deportes[d];
+      h += '<details class="card"><summary>' + d.toUpperCase() + ' · ' + x.juegos.toLocaleString('es-US') + ' juegos</summary>' + tabla(x.movimiento.filter(y => y.n), [['Se movió', y => y.tramo], ['N', y => y.n], ['Gana', y => pct(y.gana)], ['Temprano', y => sig(y.roiTemprano)], ['Tarde', y => sig(y.roiTarde)], ['En contra', y => sig(y.roiContra)]]) + '</details>';
+    });
+  }
+  $('#v-medir').innerHTML = h || '<div class="vacio">Sin datos todavía.</div>';
+}
+function pintarInfo() {
+  $('#v-info').innerHTML = `
+  <h2>Qué hace TIGRE</h2>
+  <div class="card"><p>Cada 30 minutos un robot en GitHub fotografía las líneas de <b>DraftKings</b> (vía ESPN) de los juegos de las próximas 36 horas —ganador, hándicap, total y props de jugador en NBA, NHL y NFL— y el precio de <b>Kalshi</b>. Fútbol: Premier, La Liga, Serie A, Bundesliga, Ligue 1, Champions, Europa League, MLS y Liga MX. MLB entra sola cuando empiece la temporada.</p></div>
+  <h2>Las señales</h2>
+  <div class="card"><ul class="lista">
+    <li><b>⚡ Rápido:</b> el mercado se movió fuerte en las últimas 2 horas (ganador 3+ pts de probabilidad; hándicap/total según el deporte; props 1 punto de línea o 8 pts de precio).</li>
+    <li><b>📈 Desde la apertura:</b> la línea ya se movió mucho desde que abrió la casa (ganador 5+ pts).</li>
+    <li><b>🔀 Kalshi vs casa:</b> Kalshi y DraftKings no coinciden en el ganador por 4+ pts.</li>
+  </ul><p class="nota">Cada señal guarda la cuota en ese momento. Cuando termina el juego se resuelve sola y se compara con la línea de cierre (CLV).</p></div>
+  <h2>Cómo leer la medición</h2>
+  <div class="card"><p>La pregunta es una sola: <b>¿esa señal acierta más de lo que promete su cuota?</b> Si una señal promete 55% y gana 55%, no hay ventaja (y el margen de la casa te come). Solo vale la que gane claramente por encima, con cientos de casos, y que además deje el cierre a favor (CLV +).</p></div>
+  <h2>Regla de oro</h2>
+  <div class="aviso">Nada de plata real hasta tener 300–500 señales resueltas de ese tipo. Si después de medir ninguna señal pasa, también es un resultado: te ahorra perder.</div>
+  <h2>Lo que hay que saber</h2>
+  <div class="card"><ul class="lista">
+    <li>El robot corre cada 30 min: no caza movimientos de segundos. Su ventaja es medir qué tipo de movimiento funciona.</li>
+    <li>En el estudio histórico, entrar temprano al lado que después sube rinde, y seguir el movimiento tarde pierde: el valor está antes del movimiento, no después.</li>
+    <li>Las casas limitan a los que ganan; Kalshi es un mercado entre personas y eso pasa mucho menos.</li>
+    <li>No soy asesor financiero: esto es una herramienta de medición, no una garantía.</li>
+  </ul></div>`;
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.vista').forEach(v => v.classList.toggle('on', v.id === 'v-' + b.dataset.v));
+  scrollTo(0, 0);
+});
+inicio();
+setInterval(inicio, 5 * 60000);
+</script>
+</body>
+</html>

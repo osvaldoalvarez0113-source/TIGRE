@@ -1,0 +1,49 @@
+name: TIGRE
+
+# Cada 30 minutos: fotografía las líneas, busca señales, resuelve las de juegos terminados, mide y avisa.
+# El código vive en main; los datos en la rama «datos» (un solo commit que se reescribe en cada vuelta)
+# y una copia diaria en la rama «respaldo».
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7,37 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tigre
+  cancel-in-progress: false
+
+jobs:
+  tigre:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Pruebas
+        run: node robot/pruebas.js
+      - name: Traer los datos guardados
+        run: |
+          mkdir -p /tmp/datos
+          if git fetch -q --depth 1 origin datos; then git archive FETCH_HEAD | tar -x -C /tmp/datos; else echo "primera vez: no hay datos"; fi
+          ls /tmp/datos | head
+      - name: Correr el robot
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: node robot/correr.js /tmp/datos
+      - name: Guardar en la rama datos
+        run: |
+          cd /tmp/datos
+          test -f estado.json || { echo "sin estado: no se guarda"; exit 1; }
+          printf '# Datos de TIGRE\n\nLos escribe el robot (robot/correr.js) cada 30 minutos. No editar a mano.\n' > LEEME.md
+          git init -q -b datos && git config user.name "tigre-robot" && git config user.email "tigre-robot@users.noreply.github.com"
+          git add -A && git commit -q -m "datos $(date -u +%FT%TZ)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" datos
+          # copia de seguridad una vez al día (entre las 11:00 y 11:29 UTC)
+          if [ "$(date -u +%H)" = "11" ] && [ "$(date -u +%M)" -lt 30 ]; then
+            git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" datos:respaldo && echo "respaldo guardado"
+          fi

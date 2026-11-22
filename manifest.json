@@ -1,0 +1,2 @@
+{ "name": "TIGRE · lectura de líneas", "short_name": "TIGRE", "start_url": "./", "display": "standalone", "background_color": "#0b0b0d", "theme_color": "#0b0b0d",
+  "icons": [{ "src": "icono-180.png", "sizes": "180x180", "type": "image/png" }, { "src": "icono-512.png", "sizes": "512x512", "type": "image/png" }] }
