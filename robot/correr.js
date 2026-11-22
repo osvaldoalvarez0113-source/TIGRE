@@ -49,8 +49,8 @@ async function main() {
       try { DIAG.pedidos++; return await F.bajarScoreboard(dep, ts); } catch (e) { err('marcador ' + dep, e); return []; }
     }));
     /* fútbol: los partidos de los próximos días (sus líneas se mueven toda la semana) */
-    if (C.LIGAS[dep].rango) tareasSb.push(async () => {
-      try { DIAG.pedidos++; return await F.bajarScoreboard(dep, AHORA + 2 * DIA, AHORA + C.horas(dep) * HORA); } catch (e) { err('marcador semana ' + dep, e); return []; }
+    if (C.LIGAS[dep].rango) for (let i = 2; i * DIA <= C.horas(dep) * HORA; i++) tareasSb.push(async () => {   /* ESPN no acepta rangos de fechas: día por día */
+      try { DIAG.pedidos++; return await F.bajarScoreboard(dep, AHORA + i * DIA); } catch (e) { err('marcador ' + dep + ' +' + i, e); return []; }
     });
   });
   (await L.pool(tareasSb, 8)).forEach(l => (l || []).forEach(ev => eventos.push(ev)));

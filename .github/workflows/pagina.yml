@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.pub.outputs.page_url }}
+      url: ${{ steps.pub.outputs.page_url || steps.pub2.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
@@ -31,5 +31,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _sitio
+      # a veces GitHub tarda en registrar el paquete de la página: se espera un poco y, si falla, se intenta otra vez
+      - run: sleep 20
       - id: pub
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - if: steps.pub.outcome == 'failure'
+        run: sleep 45
+      - id: pub2
+        if: steps.pub.outcome == 'failure'
         uses: actions/deploy-pages@v4
