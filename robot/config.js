@@ -13,15 +13,15 @@ const LIGAS = {
   /* universitarios: mercados más blandos que los profesionales y muchos juegos (las señales se miden más rápido). Sin props ni Kalshi */
   ncaaf: { nombre: 'NCAA Football', ruta: 'football/college-football', core: 'football/leagues/college-football', grupos: 80, horas: 120, semana: true },
   ncaab: { nombre: 'NCAA Básquet', ruta: 'basketball/mens-college-basketball', core: 'basketball/leagues/mens-college-basketball', grupos: 50 },
-  eng: { nombre: 'Premier League', ruta: 'soccer/eng.1', core: 'soccer/leagues/eng.1', futbol: true },
-  esp: { nombre: 'La Liga', ruta: 'soccer/esp.1', core: 'soccer/leagues/esp.1', futbol: true },
-  ita: { nombre: 'Serie A', ruta: 'soccer/ita.1', core: 'soccer/leagues/ita.1', futbol: true },
-  ger: { nombre: 'Bundesliga', ruta: 'soccer/ger.1', core: 'soccer/leagues/ger.1', futbol: true },
-  fra: { nombre: 'Ligue 1', ruta: 'soccer/fra.1', core: 'soccer/leagues/fra.1', futbol: true },
-  ucl: { nombre: 'Champions', ruta: 'soccer/uefa.champions', core: 'soccer/leagues/uefa.champions', futbol: true },
-  uel: { nombre: 'Europa League', ruta: 'soccer/uefa.europa', core: 'soccer/leagues/uefa.europa', futbol: true },
-  mls: { nombre: 'MLS', ruta: 'soccer/usa.1', core: 'soccer/leagues/usa.1', futbol: true },
-  mex: { nombre: 'Liga MX', ruta: 'soccer/mex.1', core: 'soccer/leagues/mex.1', futbol: true }
+  eng: { nombre: 'Premier League', ruta: 'soccer/eng.1', core: 'soccer/leagues/eng.1', futbol: true, horas: 144, rango: true },
+  esp: { nombre: 'La Liga', ruta: 'soccer/esp.1', core: 'soccer/leagues/esp.1', futbol: true, horas: 144, rango: true },
+  ita: { nombre: 'Serie A', ruta: 'soccer/ita.1', core: 'soccer/leagues/ita.1', futbol: true, horas: 144, rango: true },
+  ger: { nombre: 'Bundesliga', ruta: 'soccer/ger.1', core: 'soccer/leagues/ger.1', futbol: true, horas: 144, rango: true },
+  fra: { nombre: 'Ligue 1', ruta: 'soccer/fra.1', core: 'soccer/leagues/fra.1', futbol: true, horas: 144, rango: true },
+  ucl: { nombre: 'Champions', ruta: 'soccer/uefa.champions', core: 'soccer/leagues/uefa.champions', futbol: true, horas: 144, rango: true },
+  uel: { nombre: 'Europa League', ruta: 'soccer/uefa.europa', core: 'soccer/leagues/uefa.europa', futbol: true, horas: 144, rango: true },
+  mls: { nombre: 'MLS', ruta: 'soccer/usa.1', core: 'soccer/leagues/usa.1', futbol: true, horas: 144, rango: true },
+  mex: { nombre: 'Liga MX', ruta: 'soccer/mex.1', core: 'soccer/leagues/mex.1', futbol: true, horas: 144, rango: true }
 };
 
 /* tenis: ESPN no trae cuotas, así que la fuente es Kalshi (precio de compra con comisión) y su resultado */
@@ -68,7 +68,7 @@ const UMBRAL = {
 /* Kalshi contra DraftKings: puntos de probabilidad de diferencia en el ganador */
 const KALSHI_DIF = 4;
 /* ventanas */
-const HORAS_ADELANTE = 36;     // se fotografían los juegos que empiezan en las próximas 36 h (NFL y NCAA Football: toda la semana, ver «horas»)
+const HORAS_ADELANTE = 36;     // se fotografían los juegos que empiezan en las próximas 36 h (NFL, NCAA Football y fútbol: toda la semana, ver «horas»)
 const HORAS_PROPS = 14;        // los props solo en las últimas 14 h antes del juego (antes casi no hay)
 const HORAS_RAPIDO = 2;        // «movimiento rápido» = en las últimas 2 h
 

@@ -30,9 +30,9 @@ function parsearScoreboard(j, dep) {
   return out;
 }
 /* ts = día (hora del Este); sin ts = la semana en curso (NFL y NCAA Football) */
-async function bajarScoreboard(dep, ts) {
+async function bajarScoreboard(dep, ts, hasta) {
   const L = LIGAS[dep];
-  const q = (ts ? 'dates=' + ymd(ts) + '&' : '') + (L.grupos ? 'groups=' + L.grupos + '&' : '') + 'limit=400';
+  const q = (ts ? 'dates=' + ymd(ts) + (hasta ? '-' + ymd(hasta) : '') + '&' : '') + (L.grupos ? 'groups=' + L.grupos + '&' : '') + 'limit=400';
   return parsearScoreboard(await pedir(SITE + L.ruta + '/scoreboard?' + q), dep);
 }
 

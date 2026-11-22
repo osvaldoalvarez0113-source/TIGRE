@@ -48,6 +48,10 @@ async function main() {
     dias.forEach(ts => tareasSb.push(async () => {
       try { DIAG.pedidos++; return await F.bajarScoreboard(dep, ts); } catch (e) { err('marcador ' + dep, e); return []; }
     }));
+    /* fútbol: los partidos de los próximos días (sus líneas se mueven toda la semana) */
+    if (C.LIGAS[dep].rango) tareasSb.push(async () => {
+      try { DIAG.pedidos++; return await F.bajarScoreboard(dep, AHORA + 2 * DIA, AHORA + C.horas(dep) * HORA); } catch (e) { err('marcador semana ' + dep, e); return []; }
+    });
   });
   (await L.pool(tareasSb, 8)).forEach(l => (l || []).forEach(ev => eventos.push(ev)));
   const vistos = new Set();
@@ -204,7 +208,7 @@ async function main() {
   }
 
   /* ---------- 8. lo que lee la página ---------- */
-  const visibles = juegos.filter(j => j.ts > AHORA - 14 * HORA && j.ts - AHORA <= (j.dep === 'nfl' ? 168 : C.HORAS_ADELANTE) * HORA && Object.keys(j.m).length)
+  const visibles = juegos.filter(j => j.ts > AHORA - 14 * HORA && j.ts - AHORA <= C.horas(j.dep) * HORA && Object.keys(j.m).length)
     .sort((a, b) => a.ts - b.ts).map(j => resumenJuego(j, senales));
   escribir('hoy.json', { generado: new Date(AHORA).toISOString(), juegos: visibles });
   escribir('senales.json', senales);

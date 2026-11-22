@@ -30,6 +30,7 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--oro);
 .chips{display:flex;gap:7px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}
 .chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--tx);padding:7px 12px;border-radius:999px;font-size:13px}
 .chip.on{background:var(--oro);color:#111;border-color:var(--oro);font-weight:700}
+.chip.cero{opacity:.45}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px;margin:9px 0}
 .sen{position:relative;overflow:hidden}
 .sen:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--oro)}
@@ -91,7 +92,28 @@ p{margin:6px 0}
 <script>
 'use strict';
 const BASE = 'https://raw.githubusercontent.com/osvaldoalvarez0113-source/TIGRE/datos/';
-const D = {}; let FILTRO = 'todas', PROPS = false, DEP = 'todas', LIGA = 'todas';
+const D = {}; let FILTRO = 'todas', PROPS = false, DEPO = 'todos', LIGA = 'todas';
+/* deportes y ligas que vigila el robot (las que no tienen juegos en la ventana salen en gris con 0) */
+const DEPORTES = [['basquet', '🏀 Básquet', ['NBA', 'NCAA Básquet']], ['americano', '🏈 Americano', ['NFL', 'NCAA Football']], ['hockey', '🏒 Hockey', ['NHL']],
+  ['futbol', '⚽ Fútbol', ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Champions', 'Europa League', 'MLS', 'Liga MX']],
+  ['tenis', '🎾 Tenis', ['Tenis ATP', 'Tenis WTA', 'Challenger', 'Copa Davis']], ['beisbol', '⚾ Béisbol', ['MLB']]];
+const deporteDe = liga => { const d = DEPORTES.find(x => x[2].includes(liga)); return d ? d[0] : 'futbol'; };
+const pasaLiga = liga => (DEPO === 'todos' || deporteDe(liga) === DEPO) && (LIGA === 'todas' || liga === LIGA);
+/* dos filas de filtros: deporte y, si hay uno escogido, sus ligas (con cuántos hay de cada una) */
+function chipsLigas(ligas) {
+  const n = {}; ligas.forEach(l => { n[l] = (n[l] || 0) + 1; });
+  const porDep = d => d[2].reduce((a, l) => a + (n[l] || 0), 0);
+  let h = '<div class="chips">' + '<button class="chip' + (DEPO === 'todos' ? ' on' : '') + '" data-depo="todos">Todos (' + ligas.length + ')</button>' +
+    DEPORTES.map(d => '<button class="chip' + (DEPO === d[0] ? ' on' : '') + (porDep(d) ? '' : ' cero') + '" data-depo="' + d[0] + '">' + d[1] + ' (' + porDep(d) + ')</button>').join('') + '</div>';
+  const d = DEPORTES.find(x => x[0] === DEPO);
+  if (d && d[2].length > 1) h += '<div class="chips">' + '<button class="chip' + (LIGA === 'todas' ? ' on' : '') + '" data-liga="todas">Todas</button>' +
+    d[2].map(l => '<button class="chip' + (LIGA === l ? ' on' : '') + (n[l] ? '' : ' cero') + '" data-liga="' + esc(l) + '">' + esc(l) + ' (' + (n[l] || 0) + ')</button>').join('') + '</div>';
+  return h;
+}
+function enlazarChips(raiz, repintar) {
+  raiz.querySelectorAll('[data-depo]').forEach(b => b.onclick = () => { DEPO = b.dataset.depo; LIGA = 'todas'; repintar(); });
+  raiz.querySelectorAll('[data-liga]').forEach(b => b.onclick = () => { LIGA = b.dataset.liga; repintar(); });
+}
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hora = ts => new Date(ts).toLocaleString('es-US', { timeZone: 'America/Chicago', weekday: 'short', hour: 'numeric', minute: '2-digit' });
@@ -133,23 +155,23 @@ function tarjetaSenal(s, juego) {
 }
 function pintarSenales() {
   const ahora = Date.now();
-  const pasa = s => (FILTRO === 'todas' || s.tipo === FILTRO) && (PROPS || s.mt !== 'prop') && (DEP === 'todas' || s.liga === DEP);
+  const pasaTipo = s => (FILTRO === 'todas' || s.tipo === FILTRO) && (PROPS || s.mt !== 'prop');
+  const pasa = s => pasaTipo(s) && pasaLiga(s.liga);
   const activas = D.sen.filter(s => !s.res && s.ts > ahora && pasa(s));
   const enJuego = D.sen.filter(s => !s.res && s.ts <= ahora && pasa(s));
   const hechas = D.sen.filter(s => s.res && pasa(s)).slice(0, 60);
   const chip = (v, t) => '<button class="chip' + (FILTRO === v ? ' on' : '') + '" data-f="' + v + '">' + t + '</button>';
   let h = '<div class="chips">' + chip('todas', 'Todas') + chip('rapido', '⚡ Rápido') + chip('acumulado', '📈 Apertura') + chip('kalshi', '🔀 Kalshi') +
     '<button class="chip' + (PROPS ? ' on' : '') + '" data-p="1">👤 Props ' + (PROPS ? 'sí' : 'no') + '</button></div>';
-  const ligas = [...new Set(D.sen.map(s => s.liga))];
-  if (ligas.length > 1) h += '<div class="chips">' + ['todas'].concat(ligas).map(l => '<button class="chip' + (DEP === l ? ' on' : '') + '" data-d="' + esc(l) + '">' + (l === 'todas' ? 'Todas las ligas' : esc(l)) + '</button>').join('') + '</div>';
-  h += '<h2>Antes del juego (' + activas.length + ')</h2>' + (activas.length ? activas.sort((a, b) => b.t - a.t).map(s => tarjetaSenal(s)).join('') : '<div class="vacio">No hay señales vivas ahora mismo. El tigre espera.</div>');
+  h += chipsLigas(D.sen.filter(s => pasaTipo(s) && !s.res && s.ts > ahora).map(s => s.liga));
+  h += '<h2>Antes del juego (' + activas.length + ') · el más próximo primero</h2>' + (activas.length ? activas.sort((a, b) => (a.ts - b.ts) || (b.t - a.t)).map(s => tarjetaSenal(s)).join('') : '<div class="vacio">No hay señales vivas ahora mismo. El tigre espera.</div>');
   if (enJuego.length) h += '<h2>En juego (' + enJuego.length + ')</h2>' + enJuego.map(s => tarjetaSenal(s)).join('');
   h += '<h2>Resueltas (últimos 4 días)</h2>' + (hechas.length ? hechas.map(s => tarjetaSenal(s)).join('') : '<div class="vacio">Todavía no se ha resuelto ninguna.</div>');
   h += '<p class="nota">Una señal NO es un pick: es un movimiento del mercado que se está midiendo. Mira la pestaña 🧪 Medición antes de jugar nada.</p>';
   $('#v-senales').innerHTML = h;
   $('#v-senales').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTRO = b.dataset.f; pintarSenales(); });
   $('#v-senales').querySelector('[data-p]').onclick = () => { PROPS = !PROPS; pintarSenales(); };
-  $('#v-senales').querySelectorAll('[data-d]').forEach(b => b.onclick = () => { DEP = b.dataset.d; pintarSenales(); });
+  enlazarChips($('#v-senales'), pintarSenales);
 }
 /* línea de tendencia: probabilidad del local (o del Más); en hándicap y total, la línea (▲ = local más favorito / total más alto) */
 function spark(serie, tipo) {
@@ -182,11 +204,14 @@ function filaMercado(g, k, m) {
 function pintarJuegos() {
   const js = (D.hoy && D.hoy.juegos) || [];
   if (!js.length) { $('#v-juegos').innerHTML = '<div class="vacio">Sin juegos vigilados ahora mismo.</div>'; return; }
-  const ligas = [...new Set(js.map(g => g.liga))];
-  let h = '<div class="chips">' + ['todas'].concat(ligas).map(l => '<button class="chip' + (LIGA === l ? ' on' : '') + '" data-l="' + esc(l) + '">' + (l === 'todas' ? 'Todas' : esc(l)) + '</button>').join('') + '</div>';
-  h += '<p class="nota">Apertura de la casa → ahora. ▲▼ = cuánto subió o bajó la probabilidad del local (o del Más) en puntos; si cambió la línea, cuántos puntos de línea se movió (▲ = el local más favorito, o el total más alto).</p>';
+  const orden = DEPORTES.flatMap(d => d[2]);
+  js.sort((a, b) => ((orden.indexOf(a.liga) + 1 || 99) - (orden.indexOf(b.liga) + 1 || 99)) || (a.ts - b.ts));
+  let h = chipsLigas(js.map(g => g.liga));
+  h += '<p class="nota">Fútbol, NFL y NCAA Football: toda la semana. Lo demás: próximas 36 horas. Apertura de la casa → ahora. ▲▼ = cuánto subió o bajó la probabilidad del local (o del Más) en puntos; si cambió la línea, cuántos puntos de línea se movió (▲ = el local más favorito, o el total más alto).</p>';
   let liga = '';
-  js.filter(g => LIGA === 'todas' || g.liga === LIGA).forEach(g => {
+  const vis = js.filter(g => pasaLiga(g.liga));
+  if (!vis.length) h += '<div class="vacio">Esa liga no tiene juegos en los próximos días. El robot la sigue vigilando y aparecen solos cuando ESPN o Kalshi publiquen la línea.</div>';
+  vis.forEach(g => {
     if (g.liga !== liga) { liga = g.liga; h += '<h2>' + esc(liga) + '</h2>'; }
     const props = Object.keys(g.m).filter(k => g.m[k].t === 'prop').map(k => g.m[k]);
     const estado = g.st === 'pre' ? hora(g.ts) : (g.st === 'in' ? '🔴 ' + (esc(g.det) || 'En juego') : (g.dep === 'tenis' ? esc(g.det) : esc(g.det) + ' · ' + esc(g.a.ab) + ' ' + g.as + ' - ' + g.hs + ' ' + esc(g.h.ab)));
@@ -200,7 +225,7 @@ function pintarJuegos() {
       '</div>';
   });
   $('#v-juegos').innerHTML = h;
-  $('#v-juegos').querySelectorAll('[data-l]').forEach(b => b.onclick = () => { LIGA = b.dataset.l; pintarJuegos(); });
+  enlazarChips($('#v-juegos'), pintarJuegos);
 }
 function tabla(filas, cols) {
   if (!filas || !filas.length) return '<div class="vacio">Sin datos todavía.</div>';
