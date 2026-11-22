@@ -153,4 +153,8 @@ t('veredicto de un tipo de señal', () => {
   assert.strictEqual(M.veredicto({ n: 150, gana: 48, promete: 52, margen: 8, roi: -6, clvFavor: 40 }), 'pierde');
   assert.strictEqual(M.veredicto({ n: 20, gana: 70, promete: 52, margen: 20, roi: 30 }), 'prueba');
 });
+t('el mismo movimiento que sube de nivel cuenta una vez en el récord', () => {
+  const a = { jid: '1', mk: 'ml', tipo: 'rapido', lado: 0, t: 1, nivel: 1 }, b = Object.assign({}, a, { t: 2, nivel: 2 }), c = Object.assign({}, a, { t: 3, lado: 1 });
+  assert.deepStrictEqual(M.unicas([b, a, c]), [a, c]);
+});
 console.log((process.exitCode ? '✗ ' : '✓ ') + ok + ' pruebas pasaron');

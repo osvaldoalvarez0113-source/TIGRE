@@ -107,10 +107,18 @@ function agregar(lista) {
 }
 const NOM_TIPO = { rapido: '⚡ Movimiento rápido (2 h)', acumulado: '📈 Movimiento desde la apertura', kalshi: '🔀 Kalshi contra la casa' };
 const NOM_MT = { ml: 'Ganador', sp: 'Hándicap', tot: 'Total', prop: 'Props de jugador' };
-function tablas(senales, calib) {
+/* una señal que sube de nivel (1× → 2× → 3×) es el mismo movimiento: para el récord cuenta solo la primera vez
+   que saltó (juego + mercado + tipo + lado). La tabla «por fuerza» sí usa todas. */
+function unicas(senales) {
+  const vistas = new Set(), out = [];
+  senales.slice().sort((a, b) => a.t - b.t).forEach(s => { const k = s.jid + '|' + s.mk + '|' + s.tipo + '|' + s.lado; if (vistas.has(k)) return; vistas.add(k); out.push(s); });
+  return out;
+}
+function tablas(todas, calib) {
+  const senales = unicas(todas);
   const out = { generado: null, total: agregar(senales), porTipo: [], porMercado: [], porTipoMercado: [], porDeporte: [], porNivel: [], porTramo: [], calibracion: {} };
-  const grupos = (clave, nombre) => {
-    const g = {}; senales.forEach(s => { const k = clave(s); if (k === null) return; (g[k] = g[k] || []).push(s); });
+  const grupos = (clave, nombre, lista) => {
+    const g = {}; (lista || senales).forEach(s => { const k = clave(s); if (k === null) return; (g[k] = g[k] || []).push(s); });
     return Object.keys(g).map(k => Object.assign({ clave: k, nombre: nombre(k) }, agregar(g[k]) || { n: 0 })).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
   };
   out.porTipo = grupos(s => s.tipo, k => NOM_TIPO[k] || k);
@@ -118,7 +126,7 @@ function tablas(senales, calib) {
   out.porTipoMercado = grupos(s => s.tipo + '|' + s.mt, k => (NOM_TIPO[k.split('|')[0]] || k) + ' · ' + (NOM_MT[k.split('|')[1]] || ''));
   out.porTipoMercado.forEach(g => { g.veredicto = veredicto(g); });
   out.porDeporte = grupos(s => s.dep, k => k.toUpperCase());
-  out.porNivel = grupos(s => String(s.nivel), k => ['', 'Movimiento normal (1×)', 'Movimiento fuerte (2×)', 'Movimiento muy fuerte (3× o más)'][+k] || k);
+  out.porNivel = grupos(s => String(s.nivel), k => ['', 'Movimiento normal (1×)', 'Movimiento fuerte (2×)', 'Movimiento muy fuerte (3× o más)'][+k] || k, todas);
   out.porTramo = grupos(s => { if (!(s.p > 0)) return null; const t = TRAMOS_TODOS.find(x => s.p >= x[0] && s.p < x[1]); return t ? t[2] : null; }, k => k)
     .sort((a, b) => TRAMOS_TODOS.findIndex(t => t[2] === a.clave) - TRAMOS_TODOS.findIndex(t => t[2] === b.clave));
   /* calibración propia por mercado */
@@ -145,4 +153,4 @@ function veredicto(g) {
   if (g.n >= 100 && g.roi <= -3) return 'pierde';
   return 'prueba';
 }
-module.exports = { veredicto, resultado, clv, resolverSenales, filasCalibracion, agregar, tablas, NOM_TIPO, NOM_MT, dec };
+module.exports = { unicas, veredicto, resultado, clv, resolverSenales, filasCalibracion, agregar, tablas, NOM_TIPO, NOM_MT, dec };
