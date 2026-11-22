@@ -157,13 +157,18 @@ function filaMercado(g, k, m) {
   else if (m.t === 'k') { nom = 'Kalshi'; ab = '—'; ah = g.h.ab + ' ' + Math.round(m.ahora.c[0]) + '¢'; }
   else return '';
   let flecha = '';
-  if (p && po) { const d = (p[0] - po[0]) * 100; if (Math.abs(d) >= 0.5) flecha = ' <span class="' + (d > 0 ? 'sube' : 'baja') + '">' + (d > 0 ? '▲' : '▼') + Math.abs(d).toFixed(1) + '</span>'; }
+  const fl = (d, txt) => ' <span class="' + (d > 0 ? 'sube' : 'baja') + '">' + (d > 0 ? '▲' : '▼') + txt + '</span>';
+  if ((m.t === 'sp' || m.t === 'tot') && m.abre && m.abre.l !== m.ahora.l) {
+    /* la línea se movió: se muestra cuántos puntos de línea (hándicap: ▲ = el local más favorito; total: ▲ = subió) */
+    const d = m.t === 'sp' ? m.abre.l - m.ahora.l : m.ahora.l - m.abre.l;
+    flecha = fl(d, Math.abs(d) + ' de línea');
+  } else if (p && po) { const d = (p[0] - po[0]) * 100; if (Math.abs(d) >= 0.5) flecha = fl(d, Math.abs(d).toFixed(1)); }
   return '<div class="mk"><span class="n">' + nom + '</span><span class="ab">' + ab + '</span><span class="ah">' + ah + flecha + '</span>' + spark(m.serie) + '</div>';
 }
 function pintarJuegos() {
   const js = (D.hoy && D.hoy.juegos) || [];
   if (!js.length) { $('#v-juegos').innerHTML = '<div class="vacio">Sin juegos vigilados ahora mismo.</div>'; return; }
-  let h = '<p class="nota">Apertura de la casa → ahora. ▲▼ = cuánto subió o bajó la probabilidad del local (o del Más) en puntos.</p>';
+  let h = '<p class="nota">Apertura de la casa → ahora. ▲▼ = cuánto subió o bajó la probabilidad del local (o del Más) en puntos; si cambió la línea, cuántos puntos de línea se movió (▲ = el local más favorito, o el total más alto).</p>';
   let liga = '';
   js.forEach(g => {
     if (g.liga !== liga) { liga = g.liga; h += '<h2>' + esc(liga) + '</h2>'; }
@@ -172,7 +177,8 @@ function pintarJuegos() {
     h += '<div class="card juego"><div class="fila"><span class="eq">' + esc(g.a.n) + ' @ ' + esc(g.h.n) + '</span><span class="meta">' + estado + '</span></div>' +
       '<div class="mk" style="border:0;padding-bottom:0"><span></span><span class="meta">Apertura</span><span class="meta">Ahora</span><span></span></div>' +
       ['ml', 'sp', 'tot', 'k'].filter(k => g.m[k]).map(k => filaMercado(g, k, g.m[k])).join('') +
-      (g.senales.length ? '<div class="meta" style="margin-top:6px">🎯 ' + g.senales.length + ' señal' + (g.senales.length > 1 ? 'es' : '') + ': ' + g.senales.slice(0, 3).map(s => ICON[s.tipo] + ' ' + esc(s.txt)).join(' · ') + '</div>' : '') +
+      (() => { const sj = g.senales.filter(s => !s.prop), np = g.senales.length - sj.length; if (!g.senales.length) return '';
+        return '<div class="meta" style="margin-top:6px">🎯 ' + (sj.length ? sj.length + ' señal' + (sj.length > 1 ? 'es' : '') + ': ' + sj.slice(0, 3).map(s => ICON[s.tipo] + ' ' + esc(s.txt)).join(' · ') : 'Sin señales del juego') + (np ? ' · 👤 ' + np + ' de props' : '') + '</div>'; })() +
       (props.length ? '<details><summary>👤 Props que se movieron (' + props.length + ')</summary>' + props.sort((a, b) => Math.abs(b.p[0] - b.po[0]) - Math.abs(a.p[0] - a.po[0])).slice(0, 25).map(m =>
         '<div class="mk"><span class="n" style="text-transform:none">' + esc(m.n || '') + '</span><span class="ab">' + m.abre.l + ' (' + cuota(m.abre.c[0]) + ')</span><span class="ah">' + m.ahora.l + ' (' + cuota(m.ahora.c[0]) + ')</span><span class="meta">' + esc(m.k) + '</span></div>').join('') + '</details>' : '') +
       '</div>';
@@ -213,11 +219,11 @@ function pintarMedicion() {
     h += '<p class="nota">Cierres de DraftKings que ya guarda ODDX (MLB desde 2023; NBA, NHL y NFL de esta temporada). Solo el ganador.</p>';
     h += '<div class="card"><b>¿Cuánto acierta la cuota de cierre?</b>' + tabla(t.calibracion.filter(x => x.n), [['Favorito', x => x.tramo], ['N', x => x.n.toLocaleString('es-US')], ['Promete', x => pct(x.promete)], ['Gana', x => pct(x.gana)], ['±', x => x.margen]]) +
       '<p class="nota">Si Gana ≈ Promete (dentro del ±), el cierre está bien puesto: no hay ventaja en apostar por apostar.</p></div>';
-    h += '<div class="card"><b>Cuando la línea se mueve de la apertura al cierre</b>' + tabla(t.movimiento.filter(x => x.n), [['Se movió', x => x.tramo], ['N', x => x.n.toLocaleString('es-US')], ['Gana', x => pct(x.gana)], ['Temprano', x => sig(x.roiTemprano)], ['Tarde', x => sig(x.roiTarde)], ['En contra', x => sig(x.roiContra)]]) +
+    h += '<div class="card"><b>Cuando la línea se mueve de la apertura al cierre</b>' + tabla(t.movimiento.filter(x => x.n), [['Se movió (pts)', x => x.tramo], ['N', x => x.n.toLocaleString('es-US')], ['Gana', x => pct(x.gana)], ['Temprano', x => sig(x.roiTemprano)], ['Tarde', x => sig(x.roiTarde)], ['En contra', x => sig(x.roiContra)]]) +
       '<p class="nota"><b>Temprano</b> = entrar a la cuota de apertura al lado que DESPUÉS subió (no se puede saber de antemano: muestra dónde vive el valor). <b>Tarde</b> = seguir el movimiento a la cuota de cierre. <b>En contra</b> = el otro lado al cierre.</p></div>';
     Object.keys(H.deportes || {}).forEach(d => {
       const x = H.deportes[d];
-      h += '<details class="card"><summary>' + d.toUpperCase() + ' · ' + x.juegos.toLocaleString('es-US') + ' juegos</summary>' + tabla(x.movimiento.filter(y => y.n), [['Se movió', y => y.tramo], ['N', y => y.n], ['Gana', y => pct(y.gana)], ['Temprano', y => sig(y.roiTemprano)], ['Tarde', y => sig(y.roiTarde)], ['En contra', y => sig(y.roiContra)]]) + '</details>';
+      h += '<details class="card"><summary>' + d.toUpperCase() + ' · ' + x.juegos.toLocaleString('es-US') + ' juegos</summary>' + tabla(x.movimiento.filter(y => y.n), [['Se movió (pts)', y => y.tramo], ['N', y => y.n], ['Gana', y => pct(y.gana)], ['Temprano', y => sig(y.roiTemprano)], ['Tarde', y => sig(y.roiTarde)], ['En contra', y => sig(y.roiContra)]]) + '</details>';
     });
   }
   $('#v-medir').innerHTML = h || '<div class="vacio">Sin datos todavía.</div>';

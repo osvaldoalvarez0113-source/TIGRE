@@ -133,4 +133,18 @@ t('historia: ROI temprano, tarde y en contra', () => {
   assert.strictEqual(m.roiTarde, +((100 / 150 - 1) / 2 * 100).toFixed(1));
   assert.strictEqual(m.roiContra, +((1.3 - 1) / 2 * 100).toFixed(1));
 });
+t('detector: en NHL el ±1.5 que cambia de lado no es señal de hándicap', () => {
+  const j = juego(); j.dep = 'nhl';
+  R.anotar(j, 'sp', 'sp', T0, { c: [210, -258], l: -1.5 }, { c: [-225, 185], l: 1.5 });
+  assert.strictEqual(R.detectar(j, T0 + 60e3).filter(x => x.mk === 'sp').length, 0);
+});
+t('cierre oficial de ESPN cuando existe', () => {
+  const j = JSON.parse(JSON.stringify(ODDS_NBA)), it0 = j.items[0];
+  it0.homeTeamOdds.close = { pointSpread: { american: '-5.5' }, spread: { american: '-110' }, moneyLine: { american: '-210' } };
+  it0.awayTeamOdds.close = { pointSpread: { american: '+5.5' }, spread: { american: '-110' }, moneyLine: { american: '+175' } };
+  it0.close = { over: { american: '-108' }, under: { american: '-112' }, total: { american: '225.5' } };
+  const o = F.parsearOdds(j, false);
+  assert.deepStrictEqual(o.cierre, { ml: { c: [-210, 175], l: null }, sp: { c: [-110, -110], l: -5.5 }, tot: { c: [-108, -112], l: 225.5 } });
+  assert.strictEqual(F.parsearOdds(ODDS_NBA, false).cierre, undefined);
+});
 console.log((process.exitCode ? '✗ ' : '✓ ') + ok + ' pruebas pasaron');

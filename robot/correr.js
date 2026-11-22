@@ -111,7 +111,15 @@ async function main() {
 
   /* ---------- 4. juegos empezados y terminados ---------- */
   for (const j of juegos) {
-    if (j.st !== 'pre' && Object.keys(j.m).length) R.fijarCierre(j);
+    if (j.st !== 'pre' && Object.keys(j.m).length && !j.cierre) {
+      R.fijarCierre(j);
+      /* si ESPN ya trae el cierre oficial de DraftKings, ese manda (la última foto puede tener hasta 30 min o más) */
+      try {
+        DIAG.pedidos++;
+        const o = await F.bajarOdds(j.dep, j.id);
+        if (o && o.cierre) Object.keys(o.cierre).forEach(k => { if (j.m[k]) { j.cierre[k] = Object.assign({ t: AHORA, oficial: true }, o.cierre[k]); } });
+      } catch (e) { err('cierre ' + j.id, e); }
+    }
     if (!j.fin || j.resuelto) continue;
     let box = null;
     const hayProps = Object.values(j.m).some(m => m.t === 'prop');
@@ -209,7 +217,7 @@ function resumenJuego(j, senales) {
     if (m.t === 'prop') { x.n = m.n || ''; x.k = m.k; if (abre && abre.l === u.l && po && pa && Math.abs(pa[0] - po[0]) < 0.04) return; if (!abre) return; }
     mk[k] = x;
   });
-  const sj = senales.filter(s => s.jid === j.id).map(s => ({ id: s.id, tipo: s.tipo, txt: s.txt, desc: s.desc, mag: s.mag, unidad: s.unidad, nivel: s.nivel, t: s.t, c: s.c, res: s.res || null }));
+  const sj = senales.filter(s => s.jid === j.id).map(s => ({ id: s.id, tipo: s.tipo, txt: s.txt, desc: s.desc, mag: s.mag, unidad: s.unidad, nivel: s.nivel, t: s.t, c: s.c, res: s.res || null, prop: s.mt === 'prop' || undefined }));
   return { id: j.id, dep: j.dep, liga: j.liga, ts: j.ts, st: j.st, det: j.det, h: j.h, a: j.a, hs: j.hs, as: j.as, m: mk, senales: sj };
 }
 

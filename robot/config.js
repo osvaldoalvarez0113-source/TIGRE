@@ -44,12 +44,14 @@ const PROPS = {
    ml  = puntos de probabilidad (sin margen) del ganador.
    sp / tot = puntos de LÍNEA (hándicap y total); si la línea no se mueve, cuenta el precio (ver precio).
    precio = puntos de probabilidad cuando la línea es la misma (por ejemplo −110 → −135 en el mismo total).
-   rapido = movimiento en las últimas 2 horas · acumulado = desde la apertura de la casa. */
+   rapido = movimiento en las últimas 2 horas · acumulado = desde la apertura de la casa.
+   fijo = la línea de hándicap casi siempre es ±1.5 (NHL, MLB): si solo cambia de lado es que cambió el favorito,
+          eso ya lo cuenta el ganador y no se repite como señal de hándicap. */
 const UMBRAL = {
   nba: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 1, acumulado: 1.5 }, tot: { rapido: 1.5, acumulado: 2.5 }, precio: 6, prop: { linea: 1, precio: 8 } },
-  nhl: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 0.5, acumulado: 0.5 }, tot: { rapido: 0.5, acumulado: 0.5 }, precio: 6, prop: { linea: 0.5, precio: 8 } },
+  nhl: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 0.5, acumulado: 0.5, fijo: true }, tot: { rapido: 0.5, acumulado: 0.5 }, precio: 6, prop: { linea: 0.5, precio: 8 } },
   nfl: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 1, acumulado: 1.5 }, tot: { rapido: 1, acumulado: 2 }, precio: 6, prop: { linea: 5, precio: 8 } },
-  mlb: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 0.5, acumulado: 0.5 }, tot: { rapido: 0.5, acumulado: 0.5 }, precio: 6, prop: { linea: 0.5, precio: 8 } },
+  mlb: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 0.5, acumulado: 0.5, fijo: true }, tot: { rapido: 0.5, acumulado: 0.5 }, precio: 6, prop: { linea: 0.5, precio: 8 } },
   futbol: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 0.5, acumulado: 0.5 }, tot: { rapido: 0.5, acumulado: 0.5 }, precio: 6, prop: { linea: 0.5, precio: 8 } }
 };
 /* Kalshi contra DraftKings: puntos de probabilidad de diferencia en el ganador */

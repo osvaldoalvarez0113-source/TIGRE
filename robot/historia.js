@@ -12,7 +12,7 @@
    =================================================================== */
 const { sinMargen, ganancia } = require('./lib.js');
 
-const TRAMOS_MOV = [[0, 2, 'menos de 2 pts'], [2, 4, '2 a 4 pts'], [4, 7, '4 a 7 pts'], [7, 101, '7 pts o más']];
+const TRAMOS_MOV = [[0, 2, 'menos de 2'], [2, 4, '2 a 4'], [4, 7, '4 a 7'], [7, 101, '7 o más']];
 const TRAMOS_P = [[0.5, 0.55], [0.55, 0.6], [0.6, 0.65], [0.65, 0.7], [0.7, 0.75], [0.75, 0.8], [0.8, 1.01]];
 
 function nuevo() { return { n: 0, g: 0, p: 0, pA: 0, rA: 0, rB: 0, rC: 0 }; }

@@ -66,6 +66,16 @@ function parsearOdds(j, futbol) {
   const totC = [am(ruta(it, 'current.over')) || am(it.overOdds), am(ruta(it, 'current.under')) || am(it.underOdds)];
   const totO = { l: num(ruta(it, 'open.total')), c: [am(ruta(it, 'open.over')), am(ruta(it, 'open.under'))] };
   if (totL !== null && totL > 0 && totC.every(v => v !== null)) out.tot = { ahora: { c: totC, l: totL }, abre: (totO.l !== null && totO.c.every(v => v !== null)) ? totO : null };
+  /* cierre oficial (ESPN lo llena cuando el juego ya empezó; antes no existe) */
+  const ci = {};
+  const mlC = [am(ruta(H, 'close.moneyLine')), am(ruta(A, 'close.moneyLine'))];
+  if (futbol) mlC.splice(1, 0, am(ruta(X, 'close.moneyLine')) || (out.ml ? out.ml.ahora[1] : null));
+  if (mlC.every(v => v !== null)) ci.ml = { c: mlC, l: null };
+  const spC = { h: sp(H, 'close'), a: sp(A, 'close') };
+  if (spC.h.l !== null && spC.h.c !== null && spC.a.c !== null) ci.sp = { c: [spC.h.c, spC.a.c], l: spC.h.l };
+  const totCl = num(ruta(it, 'close.total')), totCc = [am(ruta(it, 'close.over')), am(ruta(it, 'close.under'))];
+  if (totCl !== null && totCc.every(v => v !== null)) ci.tot = { c: totCc, l: totCl };
+  if (Object.keys(ci).length) out.cierre = ci;
   return (out.ml || out.sp || out.tot) ? out : null;
 }
 async function bajarOdds(dep, id) {

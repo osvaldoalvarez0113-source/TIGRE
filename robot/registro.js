@@ -85,6 +85,7 @@ function movimiento(tipo, ref, ahora, U, cual) {
   if (tipo === 'sp' || tipo === 'tot' || tipo === 'prop') {
     const lr = ref.l, la = ahora.l; if (lr === null || la === null) return null;
     const ul = tipo === 'prop' ? U.prop.linea : U[tipo][cual], up = tipo === 'prop' ? U.prop.precio : U.precio;
+    if (tipo === 'sp' && U.sp.fijo && lr !== la && Math.abs(lr) === Math.abs(la)) return null;   /* solo cambió el favorito (±1.5) */
     if (lr !== la) {
       /* hándicap: si la línea del local baja (−2.5 → −4.5) el mercado se fue al local; total/props: si sube, al Más */
       const d = tipo === 'sp' ? lr - la : la - lr;
