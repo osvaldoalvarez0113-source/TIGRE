@@ -16,10 +16,10 @@ jobs:
         run: |
           cat > s.js <<'JS'
           const get = async u => { const r = await fetch(u, { headers: { 'user-agent': 'tigre/1.0', accept: 'application/json' } }); return r.ok ? r.json() : { http: r.status }; };
-          const corto = (o, n) => JSON.stringify(o).slice(0, n || 3000);
+          const corto = (o, n) => String(JSON.stringify(o)).slice(0, n || 3000);
           (async () => {
             const S = 'https://site.api.espn.com/apis/site/v2/sports/', C = 'https://sports.core.api.espn.com/v2/sports/';
-            for (const [ruta, liga] of [['basketball/nba', 'basketball/leagues/nba'], ['soccer/eng.1', 'soccer/leagues/eng.1'], ['hockey/nhl', 'hockey/leagues/nhl'], ['football/nfl', 'football/leagues/nfl']]) {
+            for (const [ruta, liga] of [['soccer/eng.1', 'soccer/leagues/eng.1'], ['soccer/esp.1', 'soccer/leagues/esp.1'], ['hockey/nhl', 'hockey/leagues/nhl'], ['football/nfl', 'football/leagues/nfl'], ['basketball/nba', 'basketball/leagues/nba']]) { try {
               const sb = await get(S + ruta + '/scoreboard');
               const evs = sb.events || [];
               console.log('==== ' + ruta + ' eventos ' + evs.length + ' estados: ' + evs.map(e => e.status && e.status.type && e.status.type.state).join(','));
@@ -37,10 +37,11 @@ jobs:
                 const sm = await get(S + ruta + '/summary?event=' + (evs.find(x => x.status.type.state === 'post') || e).id);
                 console.log('summary boxscore: ' + corto(sm.boxscore && sm.boxscore.players && sm.boxscore.players[0] && sm.boxscore.players[0].statistics, 1500));
               }
-            }
+              if (ruta !== 'basketball/nba') { const post = evs.find(x => x.status.type.state === 'post'); if (post) console.log('post ejemplo: ' + corto({ st: post.status, c: post.competitions[0].competitors.map(x => ({ h: x.homeAway, s: x.score, w: x.winner, ab: x.team.abbreviation })) }, 1500)); }
+            } catch (er) { console.log('ERROR ' + ruta + ' ' + er.message); } }
             const K = 'https://api.elections.kalshi.com/trade-api/v2';
             for (const s of ['KXNBAGAME', 'KXNBASPREAD', 'KXNBATOTAL', 'KXNHLGAME', 'KXNFLGAME', 'KXEPLGAME']) {
-              const j = await get(K + '/events?series_ticker=' + s + '&status=open&with_nested_markets=true&limit=3');
+              let j; try { j = await get(K + '/events?series_ticker=' + s + '&status=open&with_nested_markets=true&limit=3'); } catch (er) { j = { er: er.message }; }
               console.log('==== kalshi ' + s + ' eventos ' + ((j.events || []).length) + ' ' + corto(j.events && j.events[0], 1800));
             }
           })();
