@@ -117,7 +117,10 @@ async function main() {
       try {
         DIAG.pedidos++;
         const o = await F.bajarOdds(j.dep, j.id);
-        if (o && o.cierre) Object.keys(o.cierre).forEach(k => { if (j.m[k]) { j.cierre[k] = Object.assign({ t: AHORA, oficial: true }, o.cierre[k]); } });
+        if (o && o.cierre) {
+          j.cierreFoto = {};                                       /* se guarda la foto propia para comparar con el cierre de ESPN */
+          Object.keys(o.cierre).forEach(k => { if (j.m[k]) { if (j.cierre[k]) j.cierreFoto[k] = j.cierre[k]; j.cierre[k] = Object.assign({ t: AHORA, oficial: true }, o.cierre[k]); } });
+        }
       } catch (e) { err('cierre ' + j.id, e); }
     }
     if (!j.fin || j.resuelto) continue;
