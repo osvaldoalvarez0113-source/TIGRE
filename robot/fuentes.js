@@ -29,9 +29,11 @@ function parsearScoreboard(j, dep) {
   });
   return out;
 }
+/* ts = día (hora del Este); sin ts = la semana en curso (NFL y NCAA Football) */
 async function bajarScoreboard(dep, ts) {
   const L = LIGAS[dep];
-  return parsearScoreboard(await pedir(SITE + L.ruta + '/scoreboard?dates=' + ymd(ts) + '&limit=200'), dep);
+  const q = (ts ? 'dates=' + ymd(ts) + '&' : '') + (L.grupos ? 'groups=' + L.grupos + '&' : '') + 'limit=400';
+  return parsearScoreboard(await pedir(SITE + L.ruta + '/scoreboard?' + q), dep);
 }
 
 /* ---------- cuotas del juego (endpoint core: trae apertura y actual) ---------- */

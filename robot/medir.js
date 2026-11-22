@@ -116,6 +116,7 @@ function tablas(senales, calib) {
   out.porTipo = grupos(s => s.tipo, k => NOM_TIPO[k] || k);
   out.porMercado = grupos(s => s.mt, k => NOM_MT[k] || k);
   out.porTipoMercado = grupos(s => s.tipo + '|' + s.mt, k => (NOM_TIPO[k.split('|')[0]] || k) + ' · ' + (NOM_MT[k.split('|')[1]] || ''));
+  out.porTipoMercado.forEach(g => { g.veredicto = veredicto(g); });
   out.porDeporte = grupos(s => s.dep, k => k.toUpperCase());
   out.porNivel = grupos(s => String(s.nivel), k => ['', 'Movimiento normal (1×)', 'Movimiento fuerte (2×)', 'Movimiento muy fuerte (3× o más)'][+k] || k);
   out.porTramo = grupos(s => { if (!(s.p > 0)) return null; const t = TRAMOS_TODOS.find(x => s.p >= x[0] && s.p < x[1]); return t ? t[2] : null; }, k => k)
@@ -134,4 +135,14 @@ function tablas(senales, calib) {
 }
 const TRAMOS_TODOS = [[0, 0.35, 'menos de 35%'], [0.35, 0.45, '35–45%'], [0.45, 0.55, '45–55%'], [0.55, 0.65, '55–65%'], [0.65, 0.75, '65–75%'], [0.75, 1.01, '75%+']];
 
-module.exports = { resultado, clv, resolverSenales, filasCalibracion, agregar, tablas, NOM_TIPO, NOM_MT, dec };
+/* veredicto de un grupo de señales (para el sello en la página y en los avisos)
+   probada  300+ resueltas, gana por encima de lo que prometía más allá del margen, ROI positivo y el cierre a favor la mayoría de las veces
+   pierde   100+ resueltas y ROI de −3% o peor
+   prueba   todo lo demás (todavía no se sabe) */
+function veredicto(g) {
+  if (!g || !g.n) return 'prueba';
+  if (g.n >= 300 && g.gana !== null && g.promete !== null && g.gana - g.promete >= (g.margen || 0) && g.roi > 0 && (g.clvFavor === null || g.clvFavor >= 50)) return 'probada';
+  if (g.n >= 100 && g.roi <= -3) return 'pierde';
+  return 'prueba';
+}
+module.exports = { veredicto, resultado, clv, resolverSenales, filasCalibracion, agregar, tablas, NOM_TIPO, NOM_MT, dec };

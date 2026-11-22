@@ -8,8 +8,11 @@ const OT = ' (incl. overtime)';
 const LIGAS = {
   nba: { nombre: 'NBA', ruta: 'basketball/nba', core: 'basketball/leagues/nba', kalshi: 'KXNBAGAME', props: true },
   nhl: { nombre: 'NHL', ruta: 'hockey/nhl', core: 'hockey/leagues/nhl', kalshi: 'KXNHLGAME', props: true },
-  nfl: { nombre: 'NFL', ruta: 'football/nfl', core: 'football/leagues/nfl', kalshi: 'KXNFLGAME', props: true },
+  nfl: { nombre: 'NFL', ruta: 'football/nfl', core: 'football/leagues/nfl', kalshi: 'KXNFLGAME', props: true, horas: 168, semana: true },
   mlb: { nombre: 'MLB', ruta: 'baseball/mlb', core: 'baseball/leagues/mlb', kalshi: 'KXMLBGAME', props: false },
+  /* universitarios: mercados más blandos que los profesionales y muchos juegos (las señales se miden más rápido). Sin props ni Kalshi */
+  ncaaf: { nombre: 'NCAA Football', ruta: 'football/college-football', core: 'football/leagues/college-football', grupos: 80, horas: 120, semana: true },
+  ncaab: { nombre: 'NCAA Básquet', ruta: 'basketball/mens-college-basketball', core: 'basketball/leagues/mens-college-basketball', grupos: 50 },
   eng: { nombre: 'Premier League', ruta: 'soccer/eng.1', core: 'soccer/leagues/eng.1', futbol: true },
   esp: { nombre: 'La Liga', ruta: 'soccer/esp.1', core: 'soccer/leagues/esp.1', futbol: true },
   ita: { nombre: 'Serie A', ruta: 'soccer/ita.1', core: 'soccer/leagues/ita.1', futbol: true },
@@ -51,16 +54,19 @@ const UMBRAL = {
   nba: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 1, acumulado: 1.5 }, tot: { rapido: 1.5, acumulado: 2.5 }, precio: 6, prop: { linea: 1, precio: 8 } },
   nhl: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 0.5, acumulado: 0.5, fijo: true }, tot: { rapido: 0.5, acumulado: 0.5 }, precio: 6, prop: { linea: 0.5, precio: 8 } },
   nfl: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 1, acumulado: 1.5 }, tot: { rapido: 1, acumulado: 2 }, precio: 6, prop: { linea: 5, precio: 8 } },
+  ncaaf: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 1, acumulado: 1.5 }, tot: { rapido: 1.5, acumulado: 2.5 }, precio: 6, prop: { linea: 5, precio: 8 } },
+  ncaab: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 1, acumulado: 1.5 }, tot: { rapido: 1.5, acumulado: 2.5 }, precio: 6, prop: { linea: 1, precio: 8 } },
   mlb: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 0.5, acumulado: 0.5, fijo: true }, tot: { rapido: 0.5, acumulado: 0.5 }, precio: 6, prop: { linea: 0.5, precio: 8 } },
   futbol: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 0.5, acumulado: 0.5 }, tot: { rapido: 0.5, acumulado: 0.5 }, precio: 6, prop: { linea: 0.5, precio: 8 } }
 };
 /* Kalshi contra DraftKings: puntos de probabilidad de diferencia en el ganador */
 const KALSHI_DIF = 4;
 /* ventanas */
-const HORAS_ADELANTE = 36;     // se fotografían los juegos que empiezan en las próximas 36 h
+const HORAS_ADELANTE = 36;     // se fotografían los juegos que empiezan en las próximas 36 h (NFL y NCAA Football: toda la semana, ver «horas»)
 const HORAS_PROPS = 14;        // los props solo en las últimas 14 h antes del juego (antes casi no hay)
 const HORAS_RAPIDO = 2;        // «movimiento rápido» = en las últimas 2 h
 
 function umbral(dep) { return UMBRAL[dep] || UMBRAL.futbol; }
+function horas(dep) { return (LIGAS[dep] && LIGAS[dep].horas) || HORAS_ADELANTE; }
 
-module.exports = { LIGAS, PROPS, UMBRAL, KALSHI_DIF, HORAS_ADELANTE, HORAS_PROPS, HORAS_RAPIDO, umbral };
+module.exports = { LIGAS, PROPS, UMBRAL, KALSHI_DIF, HORAS_ADELANTE, HORAS_PROPS, HORAS_RAPIDO, umbral, horas };

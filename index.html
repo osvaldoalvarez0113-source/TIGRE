@@ -54,6 +54,8 @@ th{color:var(--mut);font-weight:600;text-align:right;padding:6px 4px;font-size:1
 th:first-child,td:first-child{text-align:left}
 td{padding:7px 4px;border-top:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
 .tabla{overflow-x:auto}
+.rec{margin-top:7px;padding-top:7px;border-top:1px dashed var(--line);font-size:12.5px}
+.sello{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:11.5px;font-weight:700;margin-right:4px}.sello.ok{color:var(--good);border-color:rgba(52,211,153,.4)}.sello.mal{color:var(--bad);border-color:rgba(248,113,113,.4)}
 .nota{color:var(--mut);font-size:12.5px;margin-top:8px}
 .aviso{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:14px;padding:11px 13px;font-size:13.5px;margin:10px 0}
 .pos{color:var(--good)}.neg{color:var(--bad)}
@@ -89,7 +91,7 @@ p{margin:6px 0}
 <script>
 'use strict';
 const BASE = 'https://raw.githubusercontent.com/osvaldoalvarez0113-source/TIGRE/datos/';
-const D = {}; let FILTRO = 'todas', PROPS = false;
+const D = {}; let FILTRO = 'todas', PROPS = false, DEP = 'todas', LIGA = 'todas';
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hora = ts => new Date(ts).toLocaleString('es-US', { timeZone: 'America/Chicago', weekday: 'short', hour: 'numeric', minute: '2-digit' });
@@ -114,23 +116,32 @@ function pintarEstado() {
   const t = Date.parse(e.ultima), viejo = Date.now() - t > 75 * 60000, u = e.ultimaVuelta || {};
   $('#estado').innerHTML = '<span class="punto' + (viejo ? ' viejo' : '') + '"></span><span>Última vuelta ' + hace(t) + ' · ' + (u.fotografiados || 0) + ' juegos vigilados' + (viejo ? ' · <b style="color:var(--bad)">el robot está atrasado</b>' : '') + '</span>';
 }
+const SELLO = { probada: '<span class="sello ok">✅ Probada</span>', pierde: '<span class="sello mal">⛔ Viene perdiendo</span>', prueba: '<span class="sello">🧪 En prueba</span>' };
+function record(s) {
+  const g = D.med && (D.med.porTipoMercado || []).find(x => x.clave === s.tipo + '|' + s.mt);
+  if (!g || !g.n) return '<div class="rec">' + SELLO.prueba + ' <span class="meta">sin resultados todavía de este tipo de señal</span></div>';
+  return '<div class="rec">' + (SELLO[g.veredicto] || SELLO.prueba) + ' <span class="meta">este tipo: ' + pct(g.gana) + ' en ' + g.n + ' (prometía ' + pct(g.promete) + ') · ROI ' + sig(g.roi) + '</span></div>';
+}
 function tarjetaSenal(s, juego) {
   const res = s.res ? '<span class="res ' + s.res + '">' + ({ gana: '✓ Ganó', pierde: '✗ Perdió', push: '= Push', nula: '— Nula' }[s.res]) + '</span>' : '';
   const clv = s.res && s.clvSigno !== undefined ? ' · cierre ' + (s.clvSigno > 0 ? '<span class="pos">a favor</span>' : (s.clvSigno < 0 ? '<span class="neg">en contra</span>' : 'igual')) : '';
   return '<div class="card sen ' + s.tipo + '"><div class="fila"><span class="meta">' + ICON[s.tipo] + ' ' + NOMT[s.tipo] + ' · ' + esc(s.liga) + ' · ' + esc(s.partido) + '</span><span class="mag">' + magTxt(s) + '</span></div>' +
     '<div class="txt">' + esc(s.txt) + '</div><div class="desc">' + esc(s.desc) + '</div>' +
     '<div class="fila" style="margin-top:6px"><span class="meta">Cuota al saltar: <b style="color:var(--tx)">' + cuota(s.c) + '</b> · ' + hora(s.ts) + '</span>' + res + '</div>' +
+    (s.res ? '' : record(s)) +
     (s.res ? '<div class="meta" style="margin-top:3px">' + esc(s.marcador || '') + clv + '</div>' : '') + '</div>';
 }
 function pintarSenales() {
   const ahora = Date.now();
-  const pasa = s => (FILTRO === 'todas' || s.tipo === FILTRO) && (PROPS || s.mt !== 'prop');
+  const pasa = s => (FILTRO === 'todas' || s.tipo === FILTRO) && (PROPS || s.mt !== 'prop') && (DEP === 'todas' || s.liga === DEP);
   const activas = D.sen.filter(s => !s.res && s.ts > ahora && pasa(s));
   const enJuego = D.sen.filter(s => !s.res && s.ts <= ahora && pasa(s));
   const hechas = D.sen.filter(s => s.res && pasa(s)).slice(0, 60);
   const chip = (v, t) => '<button class="chip' + (FILTRO === v ? ' on' : '') + '" data-f="' + v + '">' + t + '</button>';
   let h = '<div class="chips">' + chip('todas', 'Todas') + chip('rapido', '⚡ Rápido') + chip('acumulado', '📈 Apertura') + chip('kalshi', '🔀 Kalshi') +
     '<button class="chip' + (PROPS ? ' on' : '') + '" data-p="1">👤 Props ' + (PROPS ? 'sí' : 'no') + '</button></div>';
+  const ligas = [...new Set(D.sen.map(s => s.liga))];
+  if (ligas.length > 1) h += '<div class="chips">' + ['todas'].concat(ligas).map(l => '<button class="chip' + (DEP === l ? ' on' : '') + '" data-d="' + esc(l) + '">' + (l === 'todas' ? 'Todas las ligas' : esc(l)) + '</button>').join('') + '</div>';
   h += '<h2>Antes del juego (' + activas.length + ')</h2>' + (activas.length ? activas.sort((a, b) => b.t - a.t).map(s => tarjetaSenal(s)).join('') : '<div class="vacio">No hay señales vivas ahora mismo. El tigre espera.</div>');
   if (enJuego.length) h += '<h2>En juego (' + enJuego.length + ')</h2>' + enJuego.map(s => tarjetaSenal(s)).join('');
   h += '<h2>Resueltas (últimos 4 días)</h2>' + (hechas.length ? hechas.map(s => tarjetaSenal(s)).join('') : '<div class="vacio">Todavía no se ha resuelto ninguna.</div>');
@@ -138,6 +149,7 @@ function pintarSenales() {
   $('#v-senales').innerHTML = h;
   $('#v-senales').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTRO = b.dataset.f; pintarSenales(); });
   $('#v-senales').querySelector('[data-p]').onclick = () => { PROPS = !PROPS; pintarSenales(); };
+  $('#v-senales').querySelectorAll('[data-d]').forEach(b => b.onclick = () => { DEP = b.dataset.d; pintarSenales(); });
 }
 function spark(serie) {
   const v = (serie || []).filter(x => x[1] != null); if (v.length < 2) return '';
@@ -168,9 +180,11 @@ function filaMercado(g, k, m) {
 function pintarJuegos() {
   const js = (D.hoy && D.hoy.juegos) || [];
   if (!js.length) { $('#v-juegos').innerHTML = '<div class="vacio">Sin juegos vigilados ahora mismo.</div>'; return; }
-  let h = '<p class="nota">Apertura de la casa → ahora. ▲▼ = cuánto subió o bajó la probabilidad del local (o del Más) en puntos; si cambió la línea, cuántos puntos de línea se movió (▲ = el local más favorito, o el total más alto).</p>';
+  const ligas = [...new Set(js.map(g => g.liga))];
+  let h = '<div class="chips">' + ['todas'].concat(ligas).map(l => '<button class="chip' + (LIGA === l ? ' on' : '') + '" data-l="' + esc(l) + '">' + (l === 'todas' ? 'Todas' : esc(l)) + '</button>').join('') + '</div>';
+  h += '<p class="nota">Apertura de la casa → ahora. ▲▼ = cuánto subió o bajó la probabilidad del local (o del Más) en puntos; si cambió la línea, cuántos puntos de línea se movió (▲ = el local más favorito, o el total más alto).</p>';
   let liga = '';
-  js.forEach(g => {
+  js.filter(g => LIGA === 'todas' || g.liga === LIGA).forEach(g => {
     if (g.liga !== liga) { liga = g.liga; h += '<h2>' + esc(liga) + '</h2>'; }
     const props = Object.keys(g.m).filter(k => g.m[k].t === 'prop').map(k => g.m[k]);
     const estado = g.st === 'pre' ? hora(g.ts) : (g.st === 'in' ? '🔴 ' + esc(g.det) : esc(g.det) + ' · ' + esc(g.a.ab) + ' ' + g.as + ' - ' + g.hs + ' ' + esc(g.h.ab));
@@ -184,6 +198,7 @@ function pintarJuegos() {
       '</div>';
   });
   $('#v-juegos').innerHTML = h;
+  $('#v-juegos').querySelectorAll('[data-l]').forEach(b => b.onclick = () => { LIGA = b.dataset.l; pintarJuegos(); });
 }
 function tabla(filas, cols) {
   if (!filas || !filas.length) return '<div class="vacio">Sin datos todavía.</div>';
@@ -198,10 +213,11 @@ function pintarMedicion() {
   else {
     const t = m.total;
     h += (n < 300 ? '<div class="aviso">Van ' + n + ' señales resueltas. Hasta 300–500 los números todavía bailan (margen ±' + (t.margen || '?') + ' pts).</div>' : '') +
-      '<div class="resumen"><div class="card"><div class="grande">' + n + '</div><div class="meta">resueltas</div></div><div class="card"><div class="grande">' + pct(t.gana) + '</div><div class="meta">aciertan (prometían ' + pct(t.promete) + ')</div></div><div class="card"><div class="grande">' + sig(t.roi) + '</div><div class="meta">rendimiento</div></div></div>';
+      '<div class="resumen"><div class="card"><div class="grande">' + n + '</div><div class="meta">resueltas</div></div><div class="card"><div class="grande">' + pct(t.gana) + '</div><div class="meta">aciertan (prometían ' + pct(t.promete) + ')</div></div><div class="card"><div class="grande">' + sig(t.roi) + '</div><div class="meta">rendimiento</div></div></div>' +
+      '<div class="card"><b>Indicador temprano · cierre a favor: ' + pct(t.clvFavor) + '</b><p class="nota" style="margin:4px 0 0">El % de aciertos tarda cientos de juegos en asentarse; el cierre a favor (CLV) se asienta mucho antes. Si una señal deja el cierre a favor más del 55% de las veces, va por buen camino.</p></div>';
     h += '<h2>Por tipo de señal</h2>' + tabla(m.porTipo, COLS_SEN);
     h += '<h2>Por mercado</h2>' + tabla(m.porMercado, COLS_SEN);
-    h += '<h2>Tipo × mercado</h2>' + tabla(m.porTipoMercado, COLS_SEN);
+    h += '<h2>Tipo × mercado (el que decide)</h2>' + tabla(m.porTipoMercado, COLS_SEN.concat([['', f => ({ probada: '✅', pierde: '⛔', prueba: '🧪' }[f.veredicto] || '')]]));
     h += '<h2>Por fuerza del movimiento</h2>' + tabla(m.porNivel, COLS_SEN);
     h += '<h2>Por tramo de probabilidad</h2>' + tabla(m.porTramo, COLS_SEN);
     h += '<h2>Por deporte</h2>' + tabla(m.porDeporte, COLS_SEN);
@@ -231,7 +247,7 @@ function pintarMedicion() {
 function pintarInfo() {
   $('#v-info').innerHTML = `
   <h2>Qué hace TIGRE</h2>
-  <div class="card"><p>Cada 30 minutos un robot en GitHub fotografía las líneas de <b>DraftKings</b> (vía ESPN) de los juegos de las próximas 36 horas —ganador, hándicap, total y props de jugador en NBA, NHL y NFL— y el precio de <b>Kalshi</b>. Fútbol: Premier, La Liga, Serie A, Bundesliga, Ligue 1, Champions, Europa League, MLS y Liga MX. MLB entra sola cuando empiece la temporada.</p></div>
+  <div class="card"><p>Cada 30 minutos un robot en GitHub fotografía las líneas de <b>DraftKings</b> (vía ESPN) de los juegos de las próximas 36 horas —ganador, hándicap, total y props de jugador en NBA, NHL y NFL— y el precio de <b>Kalshi</b>. También NCAA Football y NCAA Básquet (ganador, hándicap y total: mercados más blandos que los profesionales). Fútbol: Premier, La Liga, Serie A, Bundesliga, Ligue 1, Champions, Europa League, MLS y Liga MX. La NFL y la NCAA Football se vigilan toda la semana (sus líneas se mueven de lunes a domingo). MLB entra sola cuando empiece la temporada.</p></div>
   <h2>Las señales</h2>
   <div class="card"><ul class="lista">
     <li><b>⚡ Rápido:</b> el mercado se movió fuerte en las últimas 2 horas (ganador 3+ pts de probabilidad; hándicap/total según el deporte; props 1 punto de línea o 8 pts de precio).</li>
@@ -240,6 +256,12 @@ function pintarInfo() {
   </ul><p class="nota">Cada señal guarda la cuota en ese momento. Cuando termina el juego se resuelve sola y se compara con la línea de cierre (CLV).</p></div>
   <h2>Cómo leer la medición</h2>
   <div class="card"><p>La pregunta es una sola: <b>¿esa señal acierta más de lo que promete su cuota?</b> Si una señal promete 55% y gana 55%, no hay ventaja (y el margen de la casa te come). Solo vale la que gane claramente por encima, con cientos de casos, y que además deje el cierre a favor (CLV +).</p></div>
+  <h2>Los sellos</h2>
+  <div class="card"><ul class="lista">
+    <li><b>✅ Probada:</b> 300+ resueltas, gana por encima de lo que prometía más allá del margen de error, ROI positivo y el cierre a favor.</li>
+    <li><b>🧪 En prueba:</b> todavía no se sabe. Mírala, no la juegues fuerte.</li>
+    <li><b>⛔ Viene perdiendo:</b> 100+ resueltas y −3% o peor. Si acaso, mira la columna «En contra».</li>
+  </ul></div>
   <h2>Regla de oro</h2>
   <div class="aviso">Nada de plata real hasta tener 300–500 señales resueltas de ese tipo. Si después de medir ninguna señal pasa, también es un resultado: te ahorra perder.</div>
   <h2>Lo que hay que saber</h2>

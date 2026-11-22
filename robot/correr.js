@@ -34,34 +34,38 @@ async function main() {
   let senales = leer('senales.json', []);
   let calib = leer('calibracion.json', []);
 
-  /* ---------- 1. juegos de ayer, hoy y mañana (día del Este) ---------- */
-  const dias = [AHORA - DIA, AHORA, AHORA + DIA].map(L.diaET);
-  const archivos = {};                                  /* dia → {id: juego} */
-  dias.forEach(d => { archivos[d] = leer('juegos/' + d + '.json', {}); });
+  /* ---------- 1. juegos: ayer, hoy y mañana (día del Este); NFL y NCAA Football toda la semana ---------- */
+  const archivos = {};                                  /* dia → {id: juego}; se abren a medida que hacen falta */
+  const abrir = d => { if (!archivos[d]) archivos[d] = leer('juegos/' + d + '.json', {}); return archivos[d]; };
+  for (let i = -1; i <= 7; i++) abrir(L.diaET(AHORA + i * DIA));
   const juegoPorId = {};
   Object.values(archivos).forEach(a => Object.values(a).forEach(j => { juegoPorId[j.id] = j; }));
 
   const eventos = [];
   const tareasSb = [];
-  Object.keys(C.LIGAS).forEach(dep => [AHORA - DIA, AHORA, AHORA + DIA].forEach(ts => tareasSb.push(async () => {
-    try { DIAG.pedidos++; return await F.bajarScoreboard(dep, ts); } catch (e) { err('marcador ' + dep, e); return []; }
-  })));
+  Object.keys(C.LIGAS).forEach(dep => {
+    const dias = [AHORA - DIA, AHORA, AHORA + DIA].concat(C.LIGAS[dep].semana ? [null] : []);
+    dias.forEach(ts => tareasSb.push(async () => {
+      try { DIAG.pedidos++; return await F.bajarScoreboard(dep, ts); } catch (e) { err('marcador ' + dep, e); return []; }
+    }));
+  });
   (await L.pool(tareasSb, 8)).forEach(l => (l || []).forEach(ev => eventos.push(ev)));
   const vistos = new Set();
   eventos.forEach(ev => {
     if (vistos.has(ev.id)) return; vistos.add(ev.id);
-    const d = L.diaET(ev.ts); if (!archivos[d]) return;      /* fuera de la ventana */
+    if (!(ev.ts >= AHORA - 1.5 * DIA && ev.ts - AHORA <= C.horas(ev.dep) * HORA)) return;     /* fuera de la ventana */
+    const d = L.diaET(ev.ts);
     let j = juegoPorId[ev.id];
     if (!j) { j = R.nuevoJuego(ev, C.LIGAS[ev.dep].nombre); juegoPorId[ev.id] = j; }
     /* si ESPN movió el juego de día, se cambia de archivo */
     Object.keys(archivos).forEach(k => { if (k !== d && archivos[k][j.id]) delete archivos[k][j.id]; });
-    archivos[d][j.id] = j;
+    abrir(d)[j.id] = j;
     R.actualizarMeta(j, ev);
   });
   const juegos = Object.values(archivos).reduce((a, x) => a.concat(Object.values(x)), []);
 
   /* ---------- 2. fotos de las líneas ---------- */
-  const porFoto = juegos.filter(j => j.st === 'pre' && !j.cancel && j.ts > AHORA - 10 * 60e3 && j.ts - AHORA <= C.HORAS_ADELANTE * HORA);
+  const porFoto = juegos.filter(j => j.st === 'pre' && !j.cancel && j.ts > AHORA - 10 * 60e3 && j.ts - AHORA <= C.horas(j.dep) * HORA);
   await L.pool(porFoto.map(j => async () => {
     const lg = C.LIGAS[j.dep];
     try {
@@ -134,7 +138,7 @@ async function main() {
   }
 
   /* ---------- 5. guardar juegos (los de días viejos ya resueltos no se vuelven a abrir) ---------- */
-  Object.keys(archivos).forEach(d => escribir('juegos/' + d + '.json', archivos[d]));
+  Object.keys(archivos).forEach(d => { if (Object.keys(archivos[d]).length) escribir('juegos/' + d + '.json', archivos[d]); });
   /* señales de juegos fuera de la ventana que siguen sin resolver: se miran sus archivos */
   const pendientes = senales.filter(s => !s.res && !juegoPorId[s.jid] && AHORA - s.ts < 5 * DIA);
   const diasPend = [...new Set(pendientes.map(s => L.diaET(s.ts)))];
@@ -177,7 +181,7 @@ async function main() {
   }
 
   /* ---------- 8. lo que lee la página ---------- */
-  const visibles = juegos.filter(j => j.ts > AHORA - 14 * HORA && j.ts - AHORA <= C.HORAS_ADELANTE * HORA && Object.keys(j.m).length)
+  const visibles = juegos.filter(j => j.ts > AHORA - 14 * HORA && j.ts - AHORA <= (j.dep === 'nfl' ? 168 : C.HORAS_ADELANTE) * HORA && Object.keys(j.m).length)
     .sort((a, b) => a.ts - b.ts).map(j => resumenJuego(j, senales));
   escribir('hoy.json', { generado: new Date(AHORA).toISOString(), juegos: visibles });
   escribir('senales.json', senales);
@@ -189,7 +193,7 @@ async function main() {
   /* ---------- 9. avisos ---------- */
   const avisables = nuevas.filter(s => s.mt !== 'prop' || s.nivel >= 2);
   let aviso = 'sin avisos';
-  if (!primera && avisables.length && process.env.NTFY_TOPIC) aviso = await avisar(avisables);
+  if (!primera && avisables.length && process.env.NTFY_TOPIC) aviso = await avisar(avisables, tab);
   else if (primera) aviso = 'primera vuelta: no se avisa (todas las señales serían de golpe)';
   else if (!process.env.NTFY_TOPIC && avisables.length) aviso = 'falta el secreto NTFY_TOPIC';
 
@@ -224,16 +228,29 @@ function resumenJuego(j, senales) {
   return { id: j.id, dep: j.dep, liga: j.liga, ts: j.ts, st: j.st, det: j.det, h: j.h, a: j.a, hs: j.hs, as: j.as, m: mk, senales: sj };
 }
 
-async function avisar(lista) {
-  const hora = ts => new Date(ts).toLocaleTimeString('es-US', { timeZone: 'America/Chicago', hour: 'numeric', minute: '2-digit' });
+/* un solo aviso por vuelta; si el mismo movimiento sale como ⚡ y 📈 a la vez, va en una sola línea con el récord de su tipo */
+async function avisar(lista, tab) {
+  const hora = ts => new Date(ts).toLocaleTimeString('es-US', { timeZone: 'America/Chicago', weekday: 'short', hour: 'numeric', minute: '2-digit' });
   const ic = { rapido: '⚡', acumulado: '📈', kalshi: '🔀' };
-  const lineas = lista.slice(0, 10).map(s => ic[s.tipo] + ' ' + s.liga + ' ' + s.partido + ' (' + hora(s.ts) + ')\n   ' + s.txt + ' · ' + s.desc);
-  if (lista.length > 10) lineas.push('… y ' + (lista.length - 10) + ' más en la página');
+  const grupos = {};
+  lista.forEach(s => { const k = s.jid + '|' + s.mk + '|' + s.lado; (grupos[k] = grupos[k] || []).push(s); });
+  const record = s => {
+    const g = (tab.porTipoMercado || []).find(x => x.clave === s.tipo + '|' + s.mt);
+    if (!g || g.n < 30) return '';
+    const v = { probada: '✅ probada', pierde: '⛔ viene perdiendo', prueba: '🧪 en prueba' }[M.veredicto(g)];
+    return '\n   récord: ' + g.gana + '% en ' + g.n + ' (prometía ' + g.promete + '%) · ROI ' + (g.roi > 0 ? '+' : '') + g.roi + '% · ' + v;
+  };
+  const items = Object.values(grupos).sort((a, b) => Math.max(...b.map(x => x.nivel)) - Math.max(...a.map(x => x.nivel)));
+  const lineas = items.slice(0, 8).map(g => {
+    const s = g.find(x => x.tipo !== 'acumulado') || g[0];
+    return g.map(x => ic[x.tipo]).join('') + ' ' + s.liga + ' ' + s.partido + ' (' + hora(s.ts) + ')\n   ' + s.txt + ' · ' + s.desc + record(s);
+  });
+  if (items.length > 8) lineas.push('… y ' + (items.length - 8) + ' más en la página');
   try {
-    const titulo = 'TIGRE: ' + lista.length + (lista.length === 1 ? ' señal nueva' : ' señales nuevas');
+    const titulo = 'TIGRE: ' + items.length + (items.length === 1 ? ' movimiento nuevo' : ' movimientos nuevos');
     const u = 'https://ntfy.sh/' + encodeURIComponent(process.env.NTFY_TOPIC) + '?title=' + encodeURIComponent(titulo) + '&tags=tiger&click=' + encodeURIComponent(PAGINA);
     const r = await fetch(u, { method: 'POST', body: lineas.join('\n') });
-    return r.ok ? 'enviado (' + lista.length + ')' : 'ntfy HTTP ' + r.status;
+    return r.ok ? 'enviado (' + items.length + ')' : 'ntfy HTTP ' + r.status;
   } catch (e) { return 'ntfy falló: ' + e.message; }
 }
 

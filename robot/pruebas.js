@@ -147,4 +147,10 @@ t('cierre oficial de ESPN cuando existe', () => {
   assert.deepStrictEqual(o.cierre, { ml: { c: [-210, 175], l: null }, sp: { c: [-110, -110], l: -5.5 }, tot: { c: [-108, -112], l: 225.5 } });
   assert.strictEqual(F.parsearOdds(ODDS_NBA, false).cierre, undefined);
 });
+t('veredicto de un tipo de señal', () => {
+  assert.strictEqual(M.veredicto({ n: 350, gana: 58, promete: 52, margen: 5, roi: 4, clvFavor: 60 }), 'probada');
+  assert.strictEqual(M.veredicto({ n: 350, gana: 55, promete: 52, margen: 5, roi: 4, clvFavor: 60 }), 'prueba');
+  assert.strictEqual(M.veredicto({ n: 150, gana: 48, promete: 52, margen: 8, roi: -6, clvFavor: 40 }), 'pierde');
+  assert.strictEqual(M.veredicto({ n: 20, gana: 70, promete: 52, margen: 20, roi: 30 }), 'prueba');
+});
 console.log((process.exitCode ? '✗ ' : '✓ ') + ok + ' pruebas pasaron');

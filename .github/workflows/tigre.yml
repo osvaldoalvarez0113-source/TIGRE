@@ -47,3 +47,10 @@ jobs:
           if [ "$(date -u +%H)" = "11" ] && [ "$(date -u +%M)" -lt 30 ]; then
             git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" datos:respaldo && echo "respaldo guardado"
           fi
+      - name: Avisar si el robot falló
+        if: failure()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          [ -n "$NTFY_TOPIC" ] || exit 0
+          curl -s -o /dev/null "https://ntfy.sh/$NTFY_TOPIC?title=TIGRE%20fall%C3%B3&tags=warning&click=https://github.com/${{ github.repository }}/actions" -d "La vuelta de $(date -u +%H:%M) UTC falló. Mira GitHub Actions; la próxima vuelta lo vuelve a intentar."
