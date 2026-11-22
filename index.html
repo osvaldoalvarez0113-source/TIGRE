@@ -151,8 +151,10 @@ function pintarSenales() {
   $('#v-senales').querySelector('[data-p]').onclick = () => { PROPS = !PROPS; pintarSenales(); };
   $('#v-senales').querySelectorAll('[data-d]').forEach(b => b.onclick = () => { DEP = b.dataset.d; pintarSenales(); });
 }
-function spark(serie) {
-  const v = (serie || []).filter(x => x[1] != null); if (v.length < 2) return '';
+/* línea de tendencia: probabilidad del local (o del Más); en hándicap y total, la línea (▲ = local más favorito / total más alto) */
+function spark(serie, tipo) {
+  const val = x => tipo === 'sp' ? (x[2] == null ? null : -x[2]) : (tipo === 'tot' ? x[2] : x[1]);
+  const v = (serie || []).map(x => [x[0], val(x)]).filter(x => x[1] != null); if (v.length < 2) return '';
   const ps = v.map(x => x[1]), mn = Math.min(...ps), mx = Math.max(...ps), r = Math.max(mx - mn, 0.01);
   const pts = v.map((x, i) => (i / (v.length - 1) * 56 + 1).toFixed(1) + ',' + (21 - (x[1] - mn) / r * 20).toFixed(1)).join(' ');
   const col = ps[ps.length - 1] >= ps[0] ? 'var(--good)' : 'var(--bad)';
@@ -173,9 +175,9 @@ function filaMercado(g, k, m) {
   if ((m.t === 'sp' || m.t === 'tot') && m.abre && m.abre.l !== m.ahora.l) {
     /* la línea se movió: se muestra cuántos puntos de línea (hándicap: ▲ = el local más favorito; total: ▲ = subió) */
     const d = m.t === 'sp' ? m.abre.l - m.ahora.l : m.ahora.l - m.abre.l;
-    flecha = fl(d, Math.abs(d) + ' de línea');
+    flecha = fl(d, Math.abs(d) + ' lín.');
   } else if (p && po) { const d = (p[0] - po[0]) * 100; if (Math.abs(d) >= 0.5) flecha = fl(d, Math.abs(d).toFixed(1)); }
-  return '<div class="mk"><span class="n">' + nom + '</span><span class="ab">' + ab + '</span><span class="ah">' + ah + flecha + '</span>' + spark(m.serie) + '</div>';
+  return '<div class="mk"><span class="n">' + nom + '</span><span class="ab">' + ab + '</span><span class="ah">' + ah + flecha + '</span>' + spark(m.serie, m.t) + '</div>';
 }
 function pintarJuegos() {
   const js = (D.hoy && D.hoy.juegos) || [];
