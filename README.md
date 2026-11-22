@@ -8,5 +8,6 @@ Sistema aparte de OVA/ODDX para **leer el movimiento de las líneas** y medir qu
 - **Avisos**: ntfy, con el secreto `NTFY_TOPIC` del repo.
 - **Pruebas**: `node robot/pruebas.js` (corren antes de cada vuelta).
 
+Tenis: ATP, WTA, Challenger y Copa Davis con Kalshi como fuente (ESPN no trae cuotas de tenis).
 Señales: ⚡ movimiento rápido (2 h), 📈 movimiento desde la apertura, 🔀 Kalshi contra la casa. Umbrales en `robot/config.js`.
 Regla de oro: nada de plata real hasta tener 300–500 señales resueltas de un tipo.

@@ -62,10 +62,27 @@ async function main() {
     abrir(d)[j.id] = j;
     R.actualizarMeta(j, ev);
   });
+  /* tenis (Kalshi): los partidos se crean desde los mercados abiertos; la foto es el precio de compra con comisión */
+  for (const serie of Object.keys(C.TENIS)) {
+    let lista = [];
+    try { DIAG.pedidos++; lista = await F.bajarTenis(serie); } catch (e) { err('tenis ' + serie, e); continue; }
+    lista.forEach(ev => {
+      if (!(ev.ts >= AHORA - 1.5 * DIA && ev.ts - AHORA <= C.HORAS_ADELANTE * HORA)) return;
+      let j = juegoPorId[ev.id];
+      if (!j) { j = R.nuevoJuego({ id: ev.id, dep: 'tenis', ts: ev.ts, st: 'pre', det: '', fin: false, h: ev.h, a: ev.a, hs: null, as: null }, ev.liga); juegoPorId[ev.id] = j; }
+      if (j.fin) return;
+      const d = L.diaET(ev.ts);
+      Object.keys(archivos).forEach(k => { if (k !== d && archivos[k][j.id]) delete archivos[k][j.id]; });
+      abrir(d)[j.id] = j;
+      j.ts = ev.ts; j.st = AHORA < ev.ts ? 'pre' : 'in';
+      if (j.st === 'pre' && ev.c) R.anotar(j, 'ml', 'ml', AHORA, { c: ev.c });
+    });
+  }
   const juegos = Object.values(archivos).reduce((a, x) => a.concat(Object.values(x)), []);
+  juegos.forEach(j => { if (j.dep === 'tenis' && !j.fin && j.st === 'pre' && AHORA >= j.ts) j.st = 'in'; });
 
   /* ---------- 2. fotos de las líneas ---------- */
-  const porFoto = juegos.filter(j => j.st === 'pre' && !j.cancel && j.ts > AHORA - 10 * 60e3 && j.ts - AHORA <= C.horas(j.dep) * HORA);
+  const porFoto = juegos.filter(j => j.dep !== 'tenis' && j.st === 'pre' && !j.cancel && j.ts > AHORA - 10 * 60e3 && j.ts - AHORA <= C.horas(j.dep) * HORA);
   await L.pool(porFoto.map(j => async () => {
     const lg = C.LIGAS[j.dep];
     try {
@@ -115,6 +132,11 @@ async function main() {
 
   /* ---------- 4. juegos empezados y terminados ---------- */
   for (const j of juegos) {
+    if (j.st !== 'pre' && Object.keys(j.m).length && !j.cierre && j.dep === 'tenis') R.fijarCierre(j);
+    if (j.dep === 'tenis') {
+      if (!j.resuelto && AHORA - j.ts > 45 * 60e3) { const r = await resolverTenis(j, senales); if (r) calib = calib.concat(r); }
+      continue;
+    }
     if (j.st !== 'pre' && Object.keys(j.m).length && !j.cierre) {
       R.fijarCierre(j);
       /* si ESPN ya trae el cierre oficial de DraftKings, ese manda (la última foto puede tener hasta 30 min o más) */
@@ -147,6 +169,7 @@ async function main() {
     let cambio = false;
     for (const s of pendientes.filter(x => L.diaET(x.ts) === d)) {
       const j = a[s.jid]; if (!j || j.resuelto) continue;
+      if (j.dep === 'tenis') { const r = await resolverTenis(j, senales); if (r) { calib = calib.concat(r); cambio = true; } continue; }
       try {
         const evs = await F.bajarScoreboard(j.dep, j.ts); DIAG.pedidos++;
         const ev = evs.find(e => e.id === j.id); if (!ev) continue;
@@ -201,13 +224,32 @@ async function main() {
   Object.keys(estado.vistas).forEach(k => { if (AHORA - estado.vistas[k] > 10 * DIA) delete estado.vistas[k]; });
   estado.corridas = (estado.corridas || 0) + 1;
   estado.ultima = new Date(AHORA).toISOString();
-  estado.ultimaVuelta = { juegos: juegos.length, fotografiados: porFoto.length, senalesNuevas: nuevas.length, pedidos: DIAG.pedidos, errores: DIAG.errores.slice(0, 20), aviso };
+  const tenisVivos = juegos.filter(j => j.dep === 'tenis' && j.st === 'pre').length;
+  estado.ultimaVuelta = { juegos: juegos.length, fotografiados: porFoto.length + tenisVivos, tenis: tenisVivos, senalesNuevas: nuevas.length, pedidos: DIAG.pedidos, errores: DIAG.errores.slice(0, 20), aviso };
   escribir('estado.json', estado);
 
-  console.log('TIGRE ' + estado.ultima + ' · juegos ' + juegos.length + ' · fotografiados ' + porFoto.length + ' · mercados ' + porFoto.reduce((a, j) => a + Object.keys(j.m).length, 0) +
+  console.log('TIGRE ' + estado.ultima + ' · juegos ' + juegos.length + ' · fotografiados ' + porFoto.length + ' (+' + tenisVivos + ' de tenis) · mercados ' + porFoto.reduce((a, j) => a + Object.keys(j.m).length, 0) +
     ' · señales nuevas ' + nuevas.length + ' · señales en total ' + senales.length + ' (resueltas ' + senales.filter(s => s.res).length + ') · calibración ' + calib.length + ' · pedidos ' + DIAG.pedidos + ' · aviso: ' + aviso);
   nuevas.slice(0, 25).forEach(s => console.log('  ' + s.liga + ' ' + s.partido + ' · ' + s.tipo + ' · ' + s.txt + ' · ' + s.desc + ' · ' + s.mag + ' ' + s.unidad));
   if (DIAG.errores.length) { console.log('errores: ' + DIAG.errores.length); DIAG.errores.slice(0, 15).forEach(e => console.log('  ' + e)); }
+}
+
+/* tenis: pide el resultado a Kalshi; si ya está, cierra el partido, resuelve sus señales y devuelve las filas de calibración */
+async function resolverTenis(j, senales) {
+  let r;
+  try { DIAG.pedidos++; r = await F.bajarResultadoTenis(j.id); } catch (e) { err('resultado tenis ' + j.id, e); return null; }
+  if (!r || !r.fin) return null;
+  R.fijarCierre(j);
+  j.fin = true; j.st = 'post'; j.resuelto = AHORA;
+  if (r.nulo) {                                   /* retiro o no se jugó: Kalshi paga a precio justo → las señales quedan nulas */
+    j.cancel = true; j.det = 'Retiro / nulo';
+    senales.forEach(s => { if (s.jid === j.id && !s.res) { s.res = 'nula'; s.g = 0; } });
+    return [];
+  }
+  j.hs = r.ganador === 0 ? 1 : 0; j.as = r.ganador === 1 ? 1 : 0; j.det = 'Final · ganó ' + (r.ganador === 0 ? j.h.n : j.a.n);
+  M.resolverSenales(senales, j, null);
+  senales.forEach(s => { if (s.jid === j.id && s.res) s.marcador = 'Ganó ' + (r.ganador === 0 ? j.h.n : j.a.n); });
+  return M.filasCalibracion(j, null);
 }
 
 /* juego compacto para la página: apertura, ahora, serie corta y señales */

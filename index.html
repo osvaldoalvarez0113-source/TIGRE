@@ -189,8 +189,8 @@ function pintarJuegos() {
   js.filter(g => LIGA === 'todas' || g.liga === LIGA).forEach(g => {
     if (g.liga !== liga) { liga = g.liga; h += '<h2>' + esc(liga) + '</h2>'; }
     const props = Object.keys(g.m).filter(k => g.m[k].t === 'prop').map(k => g.m[k]);
-    const estado = g.st === 'pre' ? hora(g.ts) : (g.st === 'in' ? '🔴 ' + esc(g.det) : esc(g.det) + ' · ' + esc(g.a.ab) + ' ' + g.as + ' - ' + g.hs + ' ' + esc(g.h.ab));
-    h += '<div class="card juego"><div class="fila"><span class="eq">' + esc(g.a.n) + ' @ ' + esc(g.h.n) + '</span><span class="meta">' + estado + '</span></div>' +
+    const estado = g.st === 'pre' ? hora(g.ts) : (g.st === 'in' ? '🔴 ' + (esc(g.det) || 'En juego') : (g.dep === 'tenis' ? esc(g.det) : esc(g.det) + ' · ' + esc(g.a.ab) + ' ' + g.as + ' - ' + g.hs + ' ' + esc(g.h.ab)));
+    h += '<div class="card juego"><div class="fila"><span class="eq">' + (g.dep === 'tenis' ? esc(g.h.n) + ' vs ' + esc(g.a.n) : esc(g.a.n) + ' @ ' + esc(g.h.n)) + '</span><span class="meta">' + estado + '</span></div>' +
       '<div class="mk" style="border:0;padding-bottom:0"><span></span><span class="meta">Apertura</span><span class="meta">Ahora</span><span></span></div>' +
       ['ml', 'sp', 'tot', 'k'].filter(k => g.m[k]).map(k => filaMercado(g, k, g.m[k])).join('') +
       (() => { const sj = g.senales.filter(s => !s.prop), np = g.senales.length - sj.length; if (!g.senales.length) return '';
@@ -249,7 +249,7 @@ function pintarMedicion() {
 function pintarInfo() {
   $('#v-info').innerHTML = `
   <h2>Qué hace TIGRE</h2>
-  <div class="card"><p>Cada 30 minutos un robot en GitHub fotografía las líneas de <b>DraftKings</b> (vía ESPN) de los juegos de las próximas 36 horas —ganador, hándicap, total y props de jugador en NBA, NHL y NFL— y el precio de <b>Kalshi</b>. También NCAA Football y NCAA Básquet (ganador, hándicap y total: mercados más blandos que los profesionales). Fútbol: Premier, La Liga, Serie A, Bundesliga, Ligue 1, Champions, Europa League, MLS y Liga MX. La NFL y la NCAA Football se vigilan toda la semana (sus líneas se mueven de lunes a domingo). MLB entra sola cuando empiece la temporada.</p></div>
+  <div class="card"><p>Cada 30 minutos un robot en GitHub fotografía las líneas de <b>DraftKings</b> (vía ESPN) de los juegos de las próximas 36 horas —ganador, hándicap, total y props de jugador en NBA, NHL y NFL— y el precio de <b>Kalshi</b>. También NCAA Football y NCAA Básquet (ganador, hándicap y total: mercados más blandos que los profesionales). Fútbol: Premier, La Liga, Serie A, Bundesliga, Ligue 1, Champions, Europa League, MLS y Liga MX. La NFL y la NCAA Football se vigilan toda la semana (sus líneas se mueven de lunes a domingo). <b>Tenis</b> (ATP, WTA, Challenger y Copa Davis): ESPN no trae cuotas, así que sale de Kalshi, con el precio de compra y la comisión ya incluidos en la cuota. MLB y el tenis entran solos cuando empiece su temporada.</p></div>
   <h2>Las señales</h2>
   <div class="card"><ul class="lista">
     <li><b>⚡ Rápido:</b> el mercado se movió fuerte en las últimas 2 horas (ganador 3+ pts de probabilidad; hándicap/total según el deporte; props 1 punto de línea o 8 pts de precio).</li>

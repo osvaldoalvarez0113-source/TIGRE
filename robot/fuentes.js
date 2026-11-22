@@ -4,7 +4,7 @@
    Las funciones parsear* son puras (se prueban con robot/pruebas.js); bajar* hacen las llamadas.
    =================================================================== */
 const { am, num, pedir, pool, ymd, diaET } = require('./lib.js');
-const { LIGAS, PROPS } = require('./config.js');
+const { LIGAS, PROPS, TENIS, KALSHI_COMISION, KALSHI_SPREAD_MAX } = require('./config.js');
 
 const SITE = 'https://site.api.espn.com/apis/site/v2/sports/';
 const CORE = 'https://sports.core.api.espn.com/v2/sports/';
@@ -204,5 +204,52 @@ function kalshiDe(lista, juego) {
   return null;
 }
 
-module.exports = { parsearScoreboard, parsearOdds, parsearProps, parsearBox, parsearKalshi, kalshiDe, sigla,
+/* ---------- tenis en Kalshi ----------
+   Cada partido es un evento con dos mercados («gana X»). Se guarda como un ganador de dos lados con cuotas americanas
+   equivalentes a COMPRAR en Kalshi con la comisión incluida: así el rendimiento medido es el que pagarías de verdad. */
+function cuotaKalshi(centavos) {
+  const x = centavos / 100; if (!(x > 0 && x < 1)) return null;
+  const p = Math.min(0.995, x + KALSHI_COMISION * x * (1 - x));
+  return Math.round(p >= 0.5 ? -100 * p / (1 - p) : 100 * (1 - p) / p);
+}
+function parsearTenis(eventos, serie) {
+  const out = [];
+  (eventos || []).forEach(ev => {
+    const ms = (ev.markets || []).filter(m => m && (m.status === 'active' || m.status === 'open')).sort((a, b) => String(a.ticker).localeCompare(String(b.ticker)));
+    if (ms.length !== 2) return;
+    const lado = m => ({ ab: String(m.ticker || '').split('-').pop(), n: m.yes_sub_title || '', bid: dolares(m, 'yes_bid'), ask: dolares(m, 'yes_ask') });
+    const h = lado(ms[0]), a = lado(ms[1]);
+    const ts = Date.parse(ms[0].occurrence_datetime || ms[0].expected_expiration_time || '');
+    if (!isFinite(ts) || !h.n || !a.n) return;
+    const r = { id: String(ev.event_ticker), dep: 'tenis', liga: TENIS[serie] || 'Tenis', ts, h: { ab: h.ab, n: h.n }, a: { ab: a.ab, n: a.n }, c: null };
+    const sano = x => x.ask > 0 && x.ask < 100 && x.bid > 0 && x.ask - x.bid <= KALSHI_SPREAD_MAX;
+    if (sano(h) && sano(a)) r.c = [cuotaKalshi(h.ask), cuotaKalshi(a.ask)];
+    out.push(r);
+  });
+  return out;
+}
+async function bajarTenis(serie) {
+  let eventos = [], cursor = '';
+  for (let i = 0; i < 4; i++) {
+    const j = await pedir(KALSHI + '/events?series_ticker=' + serie + '&status=open&with_nested_markets=true&limit=200' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''));
+    if (!j) break; eventos = eventos.concat(j.events || []); cursor = j.cursor || ''; if (!cursor) break;
+  }
+  return parsearTenis(eventos, serie);
+}
+/* resultado de un partido de Kalshi: {fin, ganador: 0 (el primero) | 1 | null, nulo: retiro o partido no jugado} */
+function parsearResultadoTenis(j) {
+  const ms = ((j && (j.event && j.event.markets || j.markets)) || []).slice().sort((a, b) => String(a.ticker).localeCompare(String(b.ticker)));
+  if (ms.length !== 2) return { fin: false };
+  const hecho = ms.every(m => /settled|finalized|determined/.test(m.status || ''));
+  if (!hecho) return { fin: false };
+  const res = ms.map(m => m.result);
+  if (res[0] === 'yes' && res[1] === 'no') return { fin: true, ganador: 0 };
+  if (res[0] === 'no' && res[1] === 'yes') return { fin: true, ganador: 1 };
+  return { fin: true, ganador: null, nulo: true };       /* «scalar»: retiro o se pagó a precio justo */
+}
+async function bajarResultadoTenis(ticker) {
+  return parsearResultadoTenis(await pedir(KALSHI + '/events/' + encodeURIComponent(ticker) + '?with_nested_markets=true'));
+}
+
+module.exports = { cuotaKalshi, parsearTenis, bajarTenis, parsearResultadoTenis, bajarResultadoTenis, parsearScoreboard, parsearOdds, parsearProps, parsearBox, parsearKalshi, kalshiDe, sigla,
   bajarScoreboard, bajarOdds, bajarProps, bajarNombres, bajarBox, bajarKalshi };

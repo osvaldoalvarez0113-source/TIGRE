@@ -152,7 +152,7 @@ function registroSenal(j, s, ahora, ligaNombre) {
       ? (tipo === 'sp' ? 'línea ' + fmtL(lineaLado('sp', s.antes.l, s.lado)) + ' → ' + fmtL(l) : 'línea ' + s.antes.l + ' → ' + s.ahora.l)
       : cuotaTxt(tipo, s.antes.c, s.lado) + ' → ' + cuotaTxt(tipo, s.ahora.c, s.lado) + (s.ahora.l !== null && s.ahora.l !== undefined ? ' (línea ' + (tipo === 'sp' ? fmtL(l) : l) + ')' : ''));
   const r = {
-    id: s.clave, t: ahora, dep: j.dep, liga: ligaNombre, jid: j.id, ts: j.ts, partido: j.a.ab + ' @ ' + j.h.ab,
+    id: s.clave, t: ahora, dep: j.dep, liga: ligaNombre, jid: j.id, ts: j.ts, partido: j.dep === 'tenis' ? j.h.n + ' vs ' + j.a.n : j.a.ab + ' @ ' + j.h.ab,
     tipo: s.tipo, mk: s.mk, mt: tipo, lado: s.lado, mag: s.mag, unidad: s.unidad, nivel: s.nivel,
     txt: etiqueta(j, s.mk, s.lado, s.ahora.l), desc,
     c: s.ahora.c[s.lado], p: pa ? +pa[s.lado].toFixed(4) : null, l

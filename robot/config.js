@@ -24,6 +24,11 @@ const LIGAS = {
   mex: { nombre: 'Liga MX', ruta: 'soccer/mex.1', core: 'soccer/leagues/mex.1', futbol: true }
 };
 
+/* tenis: ESPN no trae cuotas, así que la fuente es Kalshi (precio de compra con comisión) y su resultado */
+const TENIS = { KXATPMATCH: 'Tenis ATP', KXWTAMATCH: 'Tenis WTA', KXATPCHALLENGERMATCH: 'Challenger', KXCHALLENGERMATCH: 'Challenger', KXDAVISCUPMATCH: 'Copa Davis' };
+const KALSHI_COMISION = 0.07;     /* comisión estimada de Kalshi: 7% × p × (1 − p) por contrato */
+const KALSHI_SPREAD_MAX = 8;      /* si compra y venta están a más de 8¢, el precio es poco confiable y no se anota */
+
 /* props de jugador que se siguen (nombres tal como los trae ESPN/DraftKings; los mismos que usa OVA) */
 const PROPS = {
   nba: [
@@ -57,6 +62,7 @@ const UMBRAL = {
   ncaaf: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 1, acumulado: 1.5 }, tot: { rapido: 1.5, acumulado: 2.5 }, precio: 6, prop: { linea: 5, precio: 8 } },
   ncaab: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 1, acumulado: 1.5 }, tot: { rapido: 1.5, acumulado: 2.5 }, precio: 6, prop: { linea: 1, precio: 8 } },
   mlb: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 0.5, acumulado: 0.5, fijo: true }, tot: { rapido: 0.5, acumulado: 0.5 }, precio: 6, prop: { linea: 0.5, precio: 8 } },
+  tenis: { ml: { rapido: 4, acumulado: 6 }, sp: { rapido: 1, acumulado: 1 }, tot: { rapido: 1, acumulado: 1 }, precio: 6, prop: { linea: 1, precio: 8 } },
   futbol: { ml: { rapido: 3, acumulado: 5 }, sp: { rapido: 0.5, acumulado: 0.5 }, tot: { rapido: 0.5, acumulado: 0.5 }, precio: 6, prop: { linea: 0.5, precio: 8 } }
 };
 /* Kalshi contra DraftKings: puntos de probabilidad de diferencia en el ganador */
@@ -69,4 +75,4 @@ const HORAS_RAPIDO = 2;        // «movimiento rápido» = en las últimas 2 h
 function umbral(dep) { return UMBRAL[dep] || UMBRAL.futbol; }
 function horas(dep) { return (LIGAS[dep] && LIGAS[dep].horas) || HORAS_ADELANTE; }
 
-module.exports = { LIGAS, PROPS, UMBRAL, KALSHI_DIF, HORAS_ADELANTE, HORAS_PROPS, HORAS_RAPIDO, umbral, horas };
+module.exports = { TENIS, KALSHI_COMISION, KALSHI_SPREAD_MAX, LIGAS, PROPS, UMBRAL, KALSHI_DIF, HORAS_ADELANTE, HORAS_PROPS, HORAS_RAPIDO, umbral, horas };
