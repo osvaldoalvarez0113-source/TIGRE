@@ -162,6 +162,7 @@ const imp = a => (a == null ? null : (a > 0 ? 100 / (a + 100) : -a / (-a + 100))
 const pct0 = p => p == null ? '—' : Math.round(p * 100) + '%';
 const fmtL = v => v == null ? '' : (v > 0 ? '+' : '') + v;
 const SELLO = { probada: '<span class="sello ok">✅ Probada</span>', pierde: '<span class="sello mal">⛔ Viene perdiendo</span>', prueba: '<span class="sello">🧪 En prueba</span>' };
+const ACIERTO = { alto: '<span class="sello ok">🎯 Alto acierto</span>', va: '<span class="sello">🎯 Va acertando</span>' };
 const hayRecord = () => !!(D.med && (D.med.porTipoMercado || []).some(g => g.n > 0));
 function juegoDe(id) { if (!D._jx) { D._jx = {}; ((D.hoy && D.hoy.juegos) || []).forEach(g => { D._jx[g.id] = g; }); } return D._jx[id] || null; }
 
@@ -181,7 +182,7 @@ function recordFicha(mt, puntaje) {
   const fc = D.med && D.med.fuerzaCierre, x = fc && fc.porMercado && fc.porMercado[mt];
   const g = x && (x.tramos || []).find(t => t.clave === grupoFz(puntaje));
   if (!g || !g.n) return '<div class="rec">🧪 Todavía no hay juegos terminados con esta fuerza en ' + NOM_MK[mt].toLowerCase() + '. Se mide sola.</div>';
-  return '<div class="rec">Récord de las fichas ' + esc(g.nombre) + ' en ' + NOM_MK[mt].toLowerCase() + ': ' + pct(g.gana) + ' en ' + g.n + ' (prometía ' + pct(g.promete) + ') · ROI ' + sig(g.roi) + (g.n < 300 ? ' · 🧪 en prueba' : '') + '</div>';
+  return '<div class="rec">Fichas ' + esc(g.nombre) + ' en ' + NOM_MK[mt].toLowerCase() + ': 🎯 aciertan <b>' + pct(g.gana) + '</b> en ' + g.n + ' (la cuota prometía ' + pct(g.promete) + ') · ROI ' + sig(g.roi) + ' ' + (ACIERTO[g.acierto] || '') + (g.n < 300 ? '🧪 en prueba' : '') + '</div>';
 }
 function fichaHtml(g) {
   const F = g.ficha; if (!F) return '';
@@ -232,7 +233,7 @@ function recordDe(mv) {
   const partes = mv.tipos.map(t => {
     const g = (D.med.porTipoMercado || []).find(x => x.clave === t + '|' + mv.mt);
     if (!g || !g.n) return ICON[t] + ' sin resultados';
-    return ICON[t] + ' ' + pct(g.gana) + ' en ' + g.n + ' (prometía ' + pct(g.promete) + ') · ROI ' + sig(g.roi) + ' ' + (SELLO[g.veredicto] || SELLO.prueba);
+    return ICON[t] + ' 🎯 acierta <b>' + pct(g.gana) + '</b> en ' + g.n + ' (la cuota prometía ' + pct(g.promete) + ') · ROI ' + sig(g.roi) + ' ' + (ACIERTO[g.acierto] || '') + (SELLO[g.veredicto] || SELLO.prueba);
   });
   return '<div class="rec">Récord de este tipo: ' + partes.join('<br>') + '</div>';
 }
@@ -371,6 +372,11 @@ const COLS_SEN = [['Señal', f => esc(f.nombre)], ['N', f => f.n], ['Gana', f =>
 function pintarMedicion() {
   const m = D.med; let h = '';
   const n = m && m.total ? m.total.n : 0;
+  const ma = (m && m.masAciertan) || [];
+  h += '<h2>🎯 Lo que más acierta</h2>';
+  if (!ma.length) h += '<div class="aviso">Todavía ningún grupo tiene 30 resueltas. Aquí van a salir, de mayor a menor, las señales y fichas que más aciertan.</div>';
+  else h += '<div class="card">' + tabla(ma, [['Qué', x => esc(x.nombre) + '<div class="meta">' + esc(x.de) + '</div>'], ['N', x => x.n], ['Acierta', x => '<b>' + pct(x.gana) + '</b>'], ['Prometía', x => pct(x.promete)], ['ROI', x => sig(x.roi)], ['', x => ({ alto: '🎯', va: '🎯?' }[x.acierto] || '')]]) +
+    '<p class="nota"><b>Acierta</b> = % de veces que salió (sin contar push). <b>Prometía</b> = lo que decía la cuota. Si acierta mucho pero el ROI es negativo, son favoritos que pagan poco: aciertas, pero la casa cobra por eso. Lo ideal es que acierte más de lo que prometía.</p></div>';
   h += '<h2>Tus señales</h2>';
   const prog = (m && m.progreso) || [];
   if (prog.length) {
@@ -381,7 +387,7 @@ function pintarMedicion() {
   else {
     const t = m.total;
     h += (n < 300 ? '<div class="aviso">Van ' + n + ' señales resueltas. Hasta 300–500 los números todavía bailan (margen ±' + (t.margen || '?') + ' pts).</div>' : '') +
-      '<div class="resumen"><div class="card"><div class="grande">' + n + '</div><div class="meta">resueltas</div></div><div class="card"><div class="grande">' + pct(t.gana) + '</div><div class="meta">aciertan (prometían ' + pct(t.promete) + ')</div></div><div class="card"><div class="grande">' + sig(t.roi) + '</div><div class="meta">rendimiento</div></div></div>' +
+      '<div class="resumen"><div class="card"><div class="grande">' + n + '</div><div class="meta">resueltas</div></div><div class="card"><div class="grande">🎯 ' + pct(t.gana) + '</div><div class="meta">aciertan (prometían ' + pct(t.promete) + ')</div></div><div class="card"><div class="grande">' + sig(t.roi) + '</div><div class="meta">rendimiento</div></div></div>' +
       '<div class="card"><b>Indicador temprano · cierre a favor: ' + pct(t.clvFavor) + '</b><p class="nota" style="margin:4px 0 0">El % de aciertos tarda cientos de juegos en asentarse; el cierre a favor (CLV) se asienta mucho antes. Si una señal deja el cierre a favor más del 55% de las veces, va por buen camino.</p></div>';
     h += '<h2>Por tipo de señal</h2>' + tabla(m.porTipo, COLS_SEN);
     h += '<h2>Por mercado</h2>' + tabla(m.porMercado, COLS_SEN);
@@ -448,7 +454,8 @@ function pintarInfo() {
     <li><b>✅ Probada:</b> 300+ resueltas, gana por encima de lo que prometía más allá del margen de error, ROI positivo y el cierre a favor.</li>
     <li><b>🧪 En prueba:</b> todavía no se sabe. Mírala, no la juegues fuerte.</li>
     <li><b>⛔ Viene perdiendo:</b> 100+ resueltas y −3% o peor. Si acaso, mira la columna «En contra».</li>
-  </ul></div>
+    <li><b>🎯 Alto acierto:</b> 100+ resueltas y acierta 60% o más, aunque pague poco. <b>🎯 Va acertando:</b> lo mismo con 30+ (todavía puede cambiar).</li>
+  </ul><p class="nota">Buscamos las dos cosas: <b>aciertos</b> (🎯) y que <b>acierte más de lo que prometía su cuota</b> (✅). En 🧪 Medición, «Lo que más acierta» ordena todo por % de aciertos.</p></div>
   <h2>Regla de oro</h2>
   <div class="aviso">Nada de plata real hasta tener 300–500 señales resueltas de ese tipo. Si después de medir ninguna señal pasa, también es un resultado: te ahorra perder.</div>
   <h2>Lo que hay que saber</h2>

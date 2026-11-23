@@ -152,13 +152,20 @@ function tablas(todas, calib, fuerza) {
   out.porTipo = grupos(s => s.tipo, k => NOM_TIPO[k] || k);
   out.porMercado = grupos(s => s.mt, k => NOM_MT[k] || k);
   out.porTipoMercado = grupos(s => s.tipo + '|' + s.mt, k => (NOM_TIPO[k.split('|')[0]] || k) + ' · ' + (NOM_MT[k.split('|')[1]] || ''));
-  out.porTipoMercado.forEach(g => { g.veredicto = veredicto(g); });
+  out.porTipoMercado.forEach(g => { g.veredicto = veredicto(g); g.acierto = acierto(g); });
   /* ficha de fuerza: al cierre de cada juego (todos los juegos) y en las señales */
   const fz = fuerza || [];
   out.fuerzaCierre = { n: fz.length, todos: tablaFuerza(fz), completas: tablaFuerza(fz.filter(f => f[4] >= 3)), porMercado: {} };
   ['ml', 'sp', 'tot'].forEach(mt => { const x = fz.filter(f => f[1] === mt); if (x.length) out.fuerzaCierre.porMercado[mt] = { nombre: NOM_MT[mt], n: x.length, tramos: tablaFuerza(x) }; });
   out.fuerzaSenales = grupos(s => (s.fz ? Z.grupo(s.fz.p) : null), k => Z.NOM_GRUPO[k] || k)
     .sort((a, b) => ORDEN_GRUPO.indexOf(a.clave) - ORDEN_GRUPO.indexOf(b.clave));
+  [out.fuerzaCierre.todos, out.fuerzaCierre.completas].concat(Object.values(out.fuerzaCierre.porMercado).map(x => x.tramos)).forEach(l => (l || []).forEach(g => { g.acierto = acierto(g); }));
+  /* 🎯 lo que más acierta: todos los grupos con 30+ resueltas, de mayor a menor % de aciertos */
+  const cand = [];
+  const meter = (lista, de) => (lista || []).forEach(g => { if (g.n >= 30 && g.gana != null) cand.push({ nombre: g.nombre, de, n: g.n, gana: g.gana, promete: g.promete, roi: g.roi, margen: g.margen, acierto: acierto(g) }); });
+  meter(out.porTipoMercado, 'Señal'); meter(out.porDeporte, 'Deporte'); meter(out.porTramo, 'Tramo de cuota'); meter(out.fuerzaSenales, 'Señal por fuerza');
+  meter(out.fuerzaCierre.todos, 'Ficha al cierre'); Object.values(out.fuerzaCierre.porMercado).forEach(x => meter(x.tramos, 'Ficha · ' + x.nombre));
+  out.masAciertan = cand.sort((a, b) => b.gana - a.gana || b.n - a.n).slice(0, 12);
   /* progreso hacia las 300 resueltas por tipo de señal × mercado (pendientes = las que esperan que termine su juego) */
   const prog = {};
   senales.forEach(s => {
@@ -194,4 +201,12 @@ function veredicto(g) {
   if (g.n >= 100 && g.roi <= -3) return 'pierde';
   return 'prueba';
 }
-module.exports = { filasFuerza, tablaFuerza, unicas, veredicto, resultado, clv, resolverSenales, filasCalibracion, agregar, tablas, NOM_TIPO, NOM_MT, dec };
+/* sello de aciertos (aparte de la rentabilidad): lo que más acierta, aunque pague poco
+   alto  100+ resueltas y acierta 60% o más · va  30+ resueltas y acierta 60% o más (todavía puede cambiar) */
+function acierto(g) {
+  if (!g || g.gana == null) return null;
+  if (g.n >= 100 && g.gana >= 60) return 'alto';
+  if (g.n >= 30 && g.gana >= 60) return 'va';
+  return null;
+}
+module.exports = { acierto, filasFuerza, tablaFuerza, unicas, veredicto, resultado, clv, resolverSenales, filasCalibracion, agregar, tablas, NOM_TIPO, NOM_MT, dec };

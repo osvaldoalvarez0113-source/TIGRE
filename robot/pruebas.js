@@ -244,4 +244,12 @@ t('fuerza: usa el Modelo OVA propio, no lo que muestra la app', () => {
 t('fuerza: grupos para medir', () => {
   assert.strictEqual(Z.grupo(4), '+3'); assert.strictEqual(Z.grupo(2), '+2'); assert.strictEqual(Z.grupo(0), '0'); assert.strictEqual(Z.grupo(-2), 'neg');
 });
+t('aciertos: sello aparte de la rentabilidad', () => {
+  assert.strictEqual(M.acierto({ n: 150, gana: 64 }), 'alto'); assert.strictEqual(M.acierto({ n: 40, gana: 61 }), 'va');
+  assert.strictEqual(M.acierto({ n: 150, gana: 55 }), null); assert.strictEqual(M.acierto({ n: 10, gana: 80 }), null);
+  const l = []; for (let i = 0; i < 40; i++) l.push({ jid: String(i), mk: 'ml', tipo: 'rapido', mt: 'ml', dep: 'nba', lado: 0, t: i, res: i % 3 ? 'gana' : 'pierde', p: 0.7, c: -250, g: i % 3 ? 0.4 : -1 });
+  const tab = M.tablas(l, [], []);
+  assert.ok(tab.masAciertan.length > 0 && tab.masAciertan[0].gana >= 60);
+  assert.strictEqual(tab.porTipoMercado[0].acierto, 'va');
+});
 console.log((process.exitCode ? '✗ ' : '✓ ') + ok + ' pruebas pasaron');

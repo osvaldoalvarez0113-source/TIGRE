@@ -330,7 +330,8 @@ async function avisar(lista, tab) {
     const g = (tab.porTipoMercado || []).find(x => x.clave === s.tipo + '|' + s.mt);
     if (!g || g.n < 30) return '';
     const v = { probada: '✅ probada', pierde: '⛔ viene perdiendo', prueba: '🧪 en prueba' }[M.veredicto(g)];
-    return '\n   récord: ' + g.gana + '% en ' + g.n + ' (prometía ' + g.promete + '%) · ROI ' + (g.roi > 0 ? '+' : '') + g.roi + '% · ' + v;
+    const ac = { alto: ' · 🎯 alto acierto', va: ' · 🎯 va acertando' }[M.acierto(g)] || '';
+    return '\n   🎯 acierta ' + g.gana + '% en ' + g.n + ' (prometía ' + g.promete + '%) · ROI ' + (g.roi > 0 ? '+' : '') + g.roi + '% · ' + v + ac;
   };
   const items = Object.values(grupos).sort((a, b) => Math.max(...b.map(x => x.nivel)) - Math.max(...a.map(x => x.nivel)));
   const lineas = items.slice(0, 8).map(g => {
