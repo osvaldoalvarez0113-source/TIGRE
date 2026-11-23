@@ -4,7 +4,7 @@
    Las funciones parsear* son puras (se prueban con robot/pruebas.js); bajar* hacen las llamadas.
    =================================================================== */
 const { am, num, pedir, pool, ymd, diaET } = require('./lib.js');
-const { LIGAS, PROPS, TENIS, KALSHI_COMISION, KALSHI_SPREAD_MAX } = require('./config.js');
+const { LIGAS, PROPS, TENIS, KALSHI_COMISION, KALSHI_SPREAD_MAX, KALSHI_PRECIO, KALSHI_LIQUIDEZ } = require('./config.js');
 
 const SITE = 'https://site.api.espn.com/apis/site/v2/sports/';
 const CORE = 'https://sports.core.api.espn.com/v2/sports/';
@@ -217,13 +217,16 @@ function parsearTenis(eventos, serie) {
   (eventos || []).forEach(ev => {
     const ms = (ev.markets || []).filter(m => m && (m.status === 'active' || m.status === 'open')).sort((a, b) => String(a.ticker).localeCompare(String(b.ticker)));
     if (ms.length !== 2) return;
-    const lado = m => ({ ab: String(m.ticker || '').split('-').pop(), n: m.yes_sub_title || '', bid: dolares(m, 'yes_bid'), ask: dolares(m, 'yes_ask') });
+    const num0 = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+    const lado = m => ({ ab: String(m.ticker || '').split('-').pop(), n: m.yes_sub_title || '', bid: dolares(m, 'yes_bid'), ask: dolares(m, 'yes_ask'),
+      liq: Math.max(num0(m.volume_fp !== undefined ? m.volume_fp : m.volume), num0(m.open_interest_fp !== undefined ? m.open_interest_fp : m.open_interest)) });
     const h = lado(ms[0]), a = lado(ms[1]);
     const ts = Date.parse(ms[0].occurrence_datetime || ms[0].expected_expiration_time || '');
     if (!isFinite(ts) || !h.n || !a.n) return;
     const r = { id: String(ev.event_ticker), dep: 'tenis', liga: TENIS[serie] || 'Tenis', ts, h: { ab: h.ab, n: h.n }, a: { ab: a.ab, n: a.n }, c: null };
-    const sano = x => x.ask > 0 && x.ask < 100 && x.bid > 0 && x.ask - x.bid <= KALSHI_SPREAD_MAX;
-    if (sano(h) && sano(a)) r.c = [cuotaKalshi(h.ask), cuotaKalshi(a.ask)];
+    /* solo se anota el precio si es confiable: compra y venta cerca, sin precios extremos y con dinero de verdad en el mercado */
+    const sano = x => x.ask >= KALSHI_PRECIO[0] && x.ask <= KALSHI_PRECIO[1] && x.bid > 0 && x.ask - x.bid <= KALSHI_SPREAD_MAX;
+    if (sano(h) && sano(a) && Math.max(h.liq, a.liq) >= KALSHI_LIQUIDEZ) r.c = [cuotaKalshi(h.ask), cuotaKalshi(a.ask)];
     out.push(r);
   });
   return out;

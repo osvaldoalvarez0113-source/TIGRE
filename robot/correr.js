@@ -66,6 +66,17 @@ async function main() {
     abrir(d)[j.id] = j;
     R.actualizarMeta(j, ev);
   });
+  /* limpieza única (v1): las primeras fotos de tenis no filtraban mercados sin dinero → se borran esas fotos y sus señales */
+  if (!estado.limpiezaTenis) {
+    let fotos = 0;
+    Object.values(juegoPorId).forEach(j => { if (j.dep === 'tenis' && !j.fin && j.m.ml) { fotos += j.m.ml.serie.length; delete j.m.ml; } });
+    const antes = senales.length;
+    senales = senales.filter(s => s.dep !== 'tenis' || s.res);
+    Object.keys(estado.vistas).forEach(k => { const j = juegoPorId[k.split('|')[0]]; if (j && j.dep === 'tenis') delete estado.vistas[k]; });
+    estado.limpiezaTenis = AHORA;
+    console.log('limpieza de tenis: ' + fotos + ' fotos y ' + (antes - senales.length) + ' señales borradas');
+  }
+
   /* tenis (Kalshi): los partidos se crean desde los mercados abiertos; la foto es el precio de compra con comisión */
   for (const serie of Object.keys(C.TENIS)) {
     let lista = [];
@@ -195,7 +206,7 @@ async function main() {
 
   /* ---------- 7. estudio histórico (una vez al día, con el archivo de cierres de ODDX) ---------- */
   let hist = leer('historia.json', null);
-  if (!hist || AHORA - (estado.historiaTs || 0) > 20 * HORA) {
+  if (!hist || hist.v !== 2 || AHORA - (estado.historiaTs || 0) > 20 * HORA) {
     try {
       let todos = [];
       for (const dep of ['nba', 'nhl', 'nfl', 'mlb']) {
@@ -203,7 +214,7 @@ async function main() {
         const a = await L.pedir('https://raw.githubusercontent.com/osvaldoalvarez0113-source/ODDX/cierres/cierres-' + dep + '.json');
         if (a) todos = todos.concat(H.juegosDeCierres(dep, a));
       }
-      if (todos.length) { hist = H.estudiar(todos); hist.generado = new Date(AHORA).toISOString(); estado.historiaTs = AHORA; }
+      if (todos.length) { hist = H.estudiar(todos); hist.v = 2; hist.generado = new Date(AHORA).toISOString(); estado.historiaTs = AHORA; }
     } catch (e) { err('historia', e); }
   }
 
@@ -270,7 +281,7 @@ function resumenJuego(j, senales) {
     if (m.t === 'prop') { x.n = m.n || ''; x.k = m.k; if (abre && abre.l === u.l && po && pa && Math.abs(pa[0] - po[0]) < 0.04) return; if (!abre) return; }
     mk[k] = x;
   });
-  const sj = senales.filter(s => s.jid === j.id).map(s => ({ id: s.id, tipo: s.tipo, txt: s.txt, desc: s.desc, mag: s.mag, unidad: s.unidad, nivel: s.nivel, t: s.t, c: s.c, res: s.res || null, prop: s.mt === 'prop' || undefined }));
+  const sj = senales.filter(s => s.jid === j.id).map(s => ({ id: s.id, mk: s.mk, lado: s.lado, tipo: s.tipo, txt: s.txt, desc: s.desc, mag: s.mag, unidad: s.unidad, nivel: s.nivel, t: s.t, c: s.c, res: s.res || null, prop: s.mt === 'prop' || undefined }));
   return { id: j.id, dep: j.dep, liga: j.liga, ts: j.ts, st: j.st, det: j.det, h: j.h, a: j.a, hs: j.hs, as: j.as, m: mk, senales: sj };
 }
 

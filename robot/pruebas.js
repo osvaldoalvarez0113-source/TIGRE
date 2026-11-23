@@ -160,7 +160,7 @@ t('el mismo movimiento que sube de nivel cuenta una vez en el récord', () => {
 t('tenis en Kalshi: cuota con comisión, partido y resultado', () => {
   assert.strictEqual(F.cuotaKalshi(50), -107);                    /* 50¢ + comisión ≈ 51.75¢ */
   const evs = [{ event_ticker: 'KXATPMATCH-27JAN05SINALC', markets: [
-    { ticker: 'KXATPMATCH-27JAN05SINALC-SIN', status: 'active', yes_sub_title: 'Jannik Sinner', yes_bid_dollars: '0.55', yes_ask_dollars: '0.57', occurrence_datetime: '2027-01-05T09:00:00Z' },
+    { ticker: 'KXATPMATCH-27JAN05SINALC-SIN', status: 'active', yes_sub_title: 'Jannik Sinner', yes_bid_dollars: '0.55', yes_ask_dollars: '0.57', volume_fp: '5000', occurrence_datetime: '2027-01-05T09:00:00Z' },
     { ticker: 'KXATPMATCH-27JAN05SINALC-ALC', status: 'active', yes_sub_title: 'Carlos Alcaraz', yes_bid_dollars: '0.43', yes_ask_dollars: '0.45', occurrence_datetime: '2027-01-05T09:00:00Z' }] }];
   const p = F.parsearTenis(evs, 'KXATPMATCH')[0];
   assert.strictEqual(p.h.n, 'Carlos Alcaraz'); assert.strictEqual(p.a.n, 'Jannik Sinner'); assert.strictEqual(p.liga, 'Tenis ATP');
@@ -168,8 +168,19 @@ t('tenis en Kalshi: cuota con comisión, partido y resultado', () => {
   const res = F.parsearResultadoTenis({ event: { markets: [{ ticker: 'X-SIN', status: 'finalized', result: 'yes' }, { ticker: 'X-ALC', status: 'finalized', result: 'no' }] } });
   assert.deepStrictEqual(res, { fin: true, ganador: 1 });
   assert.strictEqual(F.parsearResultadoTenis({ markets: [{ ticker: 'A', status: 'finalized', result: 'scalar' }, { ticker: 'B', status: 'finalized', result: 'scalar' }] }).nulo, true);
+  /* sin dinero en el mercado: no se anota precio */
+  const sinDinero = JSON.parse(JSON.stringify(evs)); sinDinero[0].markets[0].volume_fp = '30';
+  assert.strictEqual(F.parsearTenis(sinDinero, 'KXATPMATCH')[0].c, null);
+  /* precio extremo (3¢): no se anota */
+  const extremo = JSON.parse(JSON.stringify(evs)); extremo[0].markets[1].yes_bid_dollars = '0.02'; extremo[0].markets[1].yes_ask_dollars = '0.03';
+  assert.strictEqual(F.parsearTenis(extremo, 'KXATPMATCH')[0].c, null);
   /* spread muy abierto: no se anota precio */
   evs[0].markets[0].yes_bid_dollars = '0.30';
   assert.strictEqual(F.parsearTenis(evs, 'KXATPMATCH')[0].c, null);
+});
+t('progreso por tipo de señal', () => {
+  const l = [{ jid: '1', mk: 'ml', tipo: 'rapido', mt: 'ml', lado: 0, t: 1, res: 'gana', p: 0.5, c: 100, g: 1 }, { jid: '2', mk: 'ml', tipo: 'rapido', mt: 'ml', lado: 0, t: 2 }];
+  const pr = M.tablas(l, []).progreso[0];
+  assert.strictEqual(pr.resueltas, 1); assert.strictEqual(pr.pendientes, 1);
 });
 console.log((process.exitCode ? '✗ ' : '✓ ') + ok + ' pruebas pasaron');

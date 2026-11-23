@@ -28,6 +28,8 @@ const LIGAS = {
 const TENIS = { KXATPMATCH: 'Tenis ATP', KXWTAMATCH: 'Tenis WTA', KXATPCHALLENGERMATCH: 'Challenger', KXCHALLENGERMATCH: 'Challenger', KXDAVISCUPMATCH: 'Copa Davis' };
 const KALSHI_COMISION = 0.07;     /* comisión estimada de Kalshi: 7% × p × (1 − p) por contrato */
 const KALSHI_SPREAD_MAX = 8;      /* si compra y venta están a más de 8¢, el precio es poco confiable y no se anota */
+const KALSHI_PRECIO = [5, 95];    /* precios fuera de 5¢–95¢ casi siempre son mercados sin dinero: no se anotan */
+const KALSHI_LIQUIDEZ = 200;      /* contratos negociados o abiertos mínimos para creerle al precio */
 
 /* props de jugador que se siguen (nombres tal como los trae ESPN/DraftKings; los mismos que usa OVA) */
 const PROPS = {
@@ -75,4 +77,4 @@ const HORAS_RAPIDO = 2;        // «movimiento rápido» = en las últimas 2 h
 function umbral(dep) { return UMBRAL[dep] || UMBRAL.futbol; }
 function horas(dep) { return (LIGAS[dep] && LIGAS[dep].horas) || HORAS_ADELANTE; }
 
-module.exports = { TENIS, KALSHI_COMISION, KALSHI_SPREAD_MAX, LIGAS, PROPS, UMBRAL, KALSHI_DIF, HORAS_ADELANTE, HORAS_PROPS, HORAS_RAPIDO, umbral, horas };
+module.exports = { TENIS, KALSHI_COMISION, KALSHI_SPREAD_MAX, KALSHI_PRECIO, KALSHI_LIQUIDEZ, LIGAS, PROPS, UMBRAL, KALSHI_DIF, HORAS_ADELANTE, HORAS_PROPS, HORAS_RAPIDO, umbral, horas };

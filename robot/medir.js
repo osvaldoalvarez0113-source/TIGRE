@@ -125,6 +125,13 @@ function tablas(todas, calib) {
   out.porMercado = grupos(s => s.mt, k => NOM_MT[k] || k);
   out.porTipoMercado = grupos(s => s.tipo + '|' + s.mt, k => (NOM_TIPO[k.split('|')[0]] || k) + ' · ' + (NOM_MT[k.split('|')[1]] || ''));
   out.porTipoMercado.forEach(g => { g.veredicto = veredicto(g); });
+  /* progreso hacia las 300 resueltas por tipo de señal × mercado (pendientes = las que esperan que termine su juego) */
+  const prog = {};
+  senales.forEach(s => {
+    const k = s.tipo + '|' + s.mt, x = prog[k] = prog[k] || { clave: k, nombre: (NOM_TIPO[s.tipo] || s.tipo) + ' · ' + (NOM_MT[s.mt] || s.mt), resueltas: 0, pendientes: 0 };
+    if (!s.res) x.pendientes++; else if (s.res !== 'nula') x.resueltas++;
+  });
+  out.progreso = Object.values(prog).sort((a, b) => (b.resueltas + b.pendientes) - (a.resueltas + a.pendientes));
   out.porDeporte = grupos(s => s.dep, k => k.toUpperCase());
   out.porNivel = grupos(s => String(s.nivel), k => ['', 'Movimiento normal (1×)', 'Movimiento fuerte (2×)', 'Movimiento muy fuerte (3× o más)'][+k] || k, todas);
   out.porTramo = grupos(s => { if (!(s.p > 0)) return null; const t = TRAMOS_TODOS.find(x => s.p >= x[0] && s.p < x[1]); return t ? t[2] : null; }, k => k)
