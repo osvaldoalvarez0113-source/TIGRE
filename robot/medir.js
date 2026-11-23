@@ -160,12 +160,6 @@ function tablas(todas, calib, fuerza) {
   out.fuerzaSenales = grupos(s => (s.fz ? Z.grupo(s.fz.p) : null), k => Z.NOM_GRUPO[k] || k)
     .sort((a, b) => ORDEN_GRUPO.indexOf(a.clave) - ORDEN_GRUPO.indexOf(b.clave));
   [out.fuerzaCierre.todos, out.fuerzaCierre.completas].concat(Object.values(out.fuerzaCierre.porMercado).map(x => x.tramos)).forEach(l => (l || []).forEach(g => { g.acierto = acierto(g); }));
-  /* 🎯 lo que más acierta: todos los grupos con 30+ resueltas, de mayor a menor % de aciertos */
-  const cand = [];
-  const meter = (lista, de) => (lista || []).forEach(g => { if (g.n >= 30 && g.gana != null) cand.push({ nombre: g.nombre, de, n: g.n, gana: g.gana, promete: g.promete, roi: g.roi, margen: g.margen, acierto: acierto(g) }); });
-  meter(out.porTipoMercado, 'Señal'); meter(out.porDeporte, 'Deporte'); meter(out.porTramo, 'Tramo de cuota'); meter(out.fuerzaSenales, 'Señal por fuerza');
-  meter(out.fuerzaCierre.todos, 'Ficha al cierre'); Object.values(out.fuerzaCierre.porMercado).forEach(x => meter(x.tramos, 'Ficha · ' + x.nombre));
-  out.masAciertan = cand.sort((a, b) => b.gana - a.gana || b.n - a.n).slice(0, 12);
   /* progreso hacia las 300 resueltas por tipo de señal × mercado (pendientes = las que esperan que termine su juego) */
   const prog = {};
   senales.forEach(s => {
@@ -187,6 +181,12 @@ function tablas(todas, calib, fuerza) {
         gana: sp.length ? +(g / sp.length * 100).toFixed(1) : null, margen: sp.length ? margen(g / sp.length, sp.length) : null };
     }) };
   });
+  /* 🎯 lo que más acierta: todos los grupos con 30+ resueltas, de mayor a menor % de aciertos */
+  const cand = [];
+  const meter = (lista, de) => (lista || []).forEach(g => { if (g.n >= 30 && g.gana != null) cand.push({ nombre: g.nombre, de, n: g.n, gana: g.gana, promete: g.promete, roi: g.roi, margen: g.margen, acierto: acierto(g) }); });
+  meter(out.porTipoMercado, 'Señal'); meter(out.porDeporte, 'Deporte'); meter(out.porTramo, 'Tramo de cuota'); meter(out.fuerzaSenales, 'Señal por fuerza');
+  meter(out.fuerzaCierre.todos, 'Ficha al cierre'); Object.values(out.fuerzaCierre.porMercado).forEach(x => meter(x.tramos, 'Ficha · ' + x.nombre));
+  out.masAciertan = cand.sort((a, b) => b.gana - a.gana || b.n - a.n).slice(0, 12);
   return out;
 }
 const TRAMOS_TODOS = [[0, 0.35, 'menos de 35%'], [0.35, 0.45, '35–45%'], [0.45, 0.55, '45–55%'], [0.55, 0.65, '55–65%'], [0.65, 0.75, '65–75%'], [0.75, 1.01, '75%+']];
