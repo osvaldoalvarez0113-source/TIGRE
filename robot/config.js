@@ -71,7 +71,7 @@ const UMBRAL = {
 const KALSHI_DIF = 4;
 /* ventanas */
 const HORAS_ADELANTE = 36;     // se fotografían los juegos que empiezan en las próximas 36 h (NFL, NCAA Football y fútbol: toda la semana, ver «horas»)
-const HORAS_PROPS = 14;        // los props solo en las últimas 14 h antes del juego (antes casi no hay)
+const HORAS_PROPS = 36;        // los props se buscan desde 36 h antes: así TIGRE también mide a qué hora salen de verdad
 const HORAS_RAPIDO = 2;        // «movimiento rápido» = en las últimas 2 h
 
 function umbral(dep) { return UMBRAL[dep] || UMBRAL.futbol; }
