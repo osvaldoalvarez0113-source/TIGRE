@@ -109,7 +109,7 @@ p{margin:6px 0}
 <script>
 'use strict';
 const BASE = 'https://raw.githubusercontent.com/osvaldoalvarez0113-source/TIGRE/datos/';
-const D = {}; let FILTRO = 'todas', PROPS = false, DEPO = 'todos', LIGA = 'todas';
+const D = {}; let FILTRO = 'todas', PROPS = false, DEPO = 'todos', LIGA = 'todas', ANT_TODOS = false;
 /* deportes y ligas que vigila el robot (las que no tienen juegos en la ventana salen en gris con 0) */
 const DEPORTES = [['basquet', '🏀 Básquet', ['NBA', 'NCAA Básquet']], ['americano', '🏈 Americano', ['NFL', 'NCAA Football']], ['hockey', '🏒 Hockey', ['NHL']],
   ['futbol', '⚽ Fútbol', ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Champions', 'Europa League', 'MLS', 'Liga MX']],
@@ -326,7 +326,9 @@ function bloqueAnt(a) {
   return h + '</div>';
 }
 function pintarAntes() {
-  const ahora = Date.now(), L2 = D.ant.filter(a => pasaLiga(a.liga));
+  /* por defecto solo los picks con fuerza (+1 o más) y los props; los de fuerza 0 o negativa se guardan igual para medir */
+  const conFuerza = a => a.tipo !== 'ficha' || ANT_TODOS || (a.fz && a.fz.p >= 1);
+  const ahora = Date.now(), L2 = D.ant.filter(a => pasaLiga(a.liga) && conFuerza(a));
   const juegosDe = l => { const g = {}; l.forEach(a => { (g[a.jid] = g[a.jid] || []).push(a); }); return Object.values(g); };
   const tarjeta = (l, props) => {
     const a0 = l[0], j = juegoDe(a0.jid), nombre = j ? (j.dep === 'tenis' ? j.h.n + ' vs ' + j.a.n : j.a.n + ' @ ' + j.h.n) : a0.partido;
@@ -338,11 +340,13 @@ function pintarAntes() {
   const porJugar = juegosDe(L2.filter(a => !a.res && a.ts > ahora)).sort((x, y) => x[0].ts - y[0].ts);
   const hechos = juegosDe(L2.filter(a => a.res)).sort((x, y) => y[0].ts - x[0].ts).slice(0, 30);
   let h = '<div class="aviso">📅 <b>Adelantarse en vez de perseguir.</b> Un día antes, TIGRE congela el lado con más fuerza de cada juego (ganador, hándicap y total) con su precio. En props congela el favorito apenas sale la línea. Después mide si se acertó, si la línea de antes era mejor que la del cierre y cuánto habría dado.</div>';
-  h += chipsLigas(D.ant.filter(a => !a.res && a.ts > ahora).map(a => a.liga));
+  h += chipsLigas(D.ant.filter(a => !a.res && a.ts > ahora && conFuerza(a)).map(a => a.liga));
+  h += '<div class="chips"><button class="chip' + (ANT_TODOS ? '' : ' on') + '" data-at="0">💪 Solo con fuerza (+1 o más)</button><button class="chip' + (ANT_TODOS ? ' on' : '') + '" data-at="1">Todos (también 0 y negativos)</button></div>';
   h += '<h2>Por jugar · ' + porJugar.length + ' partidos</h2>' + (porJugar.length ? porJugar.map(l => tarjeta(l)).join('') : '<div class="vacio">Todavía no hay picks congelados. Se congelan entre 26 y 3 horas antes de cada juego.</div>');
   h += '<h2>Resueltos (últimos 3 días)</h2>' + (hechos.length ? hechos.map(l => tarjeta(l)).join('') : '<div class="vacio">Todavía no se ha resuelto ninguno.</div>');
   h += '<p class="nota">✅ te adelantaste = después de congelar el pick, la línea se movió hacia ese lado (el mercado te dio la razón). ⚠️ = se movió en contra. ➖ = no se ha movido.</p>';
   $('#v-antes').innerHTML = h;
+  $('#v-antes').querySelectorAll('[data-at]').forEach(b => b.onclick = () => { ANT_TODOS = b.dataset.at === '1'; pintarAntes(); });
   enlazarChips($('#v-antes'), pintarAntes);
 }
 
