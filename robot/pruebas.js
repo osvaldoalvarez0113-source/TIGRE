@@ -1,7 +1,7 @@
 'use strict';
 /* TIGRE · pruebas sin red (node robot/pruebas.js). Si algo falla, el robot no corre. */
 const assert = require('assert');
-const L = require('./lib.js'), F = require('./fuentes.js'), R = require('./registro.js'), M = require('./medir.js'), H = require('./historia.js'), Z = require('./fuerza.js');
+const L = require('./lib.js'), F = require('./fuentes.js'), R = require('./registro.js'), M = require('./medir.js'), H = require('./historia.js'), Z = require('./fuerza.js'), A = require('./anticipado.js');
 let ok = 0; const t = (n, f) => { try { f(); ok++; } catch (e) { console.log('✗ ' + n + ': ' + e.message); process.exitCode = 1; } };
 const HORA = 36e5;
 
@@ -251,5 +251,38 @@ t('aciertos: sello aparte de la rentabilidad', () => {
   const tab = M.tablas(l, [], []);
   assert.ok(tab.masAciertan.length > 0 && tab.masAciertan[0].gana >= 60);
   assert.strictEqual(tab.porTipoMercado[0].acierto, 'va');
+});
+/* ---------- picks anticipados ---------- */
+t('anticipado: congela un día antes el lado con más fuerza, una sola vez', () => {
+  const j = juego(); j.ts = T0 + 20 * HORA;                     /* faltan 20 h */
+  R.anotar(j, 'ml', 'ml', T0, { c: [-160, 140] }, { c: [-130, 110] });
+  j.ficha = Z.fichaJuego(j, Z.indexarRegistro(REG));
+  const ya = new Set(), a = A.congelar(j, T0, ya);
+  assert.strictEqual(a.length, 1); assert.strictEqual(a[0].tipo, 'ficha'); assert.strictEqual(a[0].lado, 0); assert.strictEqual(a[0].c, -160); assert.strictEqual(a[0].horas, 20);
+  a.forEach(x => ya.add(x.id));
+  assert.strictEqual(A.congelar(j, T0 + 60e3, ya).length, 0);            /* ya congelado */
+  const k = juego(); k.ts = T0 + 40 * HORA; R.anotar(k, 'ml', 'ml', T0, { c: [-160, 140] }); k.ficha = Z.fichaJuego(k, null);
+  assert.strictEqual(A.congelar(k, T0, new Set()).length, 0);            /* faltan 40 h: todavía no */
+  k.ts = T0 + 2 * HORA; assert.strictEqual(A.congelar(k, T0, new Set()).length, 0);   /* faltan 2 h: ya es tarde */
+});
+t('anticipado: props solo apenas salen, y el favorito', () => {
+  const j = juego(); j.ts = T0 + 10 * HORA;
+  R.anotar(j, 'p:7|pts', 'prop', T0, { c: [-130, 110], l: 24.5 }, null, { ath: '7', k: 'pts' });
+  const a = A.congelar(j, T0 + 5 * 60e3, new Set()).filter(x => x.tipo === 'propFav');
+  assert.strictEqual(a.length, 1); assert.strictEqual(a[0].lado, 0); assert.strictEqual(a[0].c, -130);
+  assert.strictEqual(A.congelar(j, T0 + 60 * 60e3, new Set()).filter(x => x.tipo === 'propFav').length, 0);   /* salió hace 1 h: no cuenta */
+});
+t('anticipado: se resuelve al precio temprano, al cierre y con CLV', () => {
+  const j = juego(); j.ts = T0 + 20 * HORA;
+  R.anotar(j, 'sp', 'sp', T0, { c: [-110, -110], l: -2.5 }, { c: [-110, -110], l: -2.5 });
+  const a = [{ id: '9|sp', jid: '9', mk: 'sp', mt: 'sp', tipo: 'ficha', lado: 0, c: -110, p: 0.5, l: -2.5, horas: 20, fz: { p: 2, f: 2, c: 0, n: 3 } }];
+  R.anotar(j, 'sp', 'sp', T0 + 19 * HORA, { c: [-110, -110], l: -4.5 });
+  j.st = 'post'; j.fin = true; j.hs = 110; j.as = 106; R.fijarCierre(j);
+  assert.strictEqual(M.resolverAnticipados(a, j, null), 1);
+  assert.strictEqual(a[0].res, 'gana');                 /* ganó por 4: cubre el −2.5 */
+  assert.strictEqual(a[0].gCierre, -1);                 /* al cierre (−4.5) perdía */
+  assert.strictEqual(a[0].clvLinea, 2); assert.strictEqual(a[0].clvSigno, 1);
+  const t2 = M.tablaAnticipados(a);
+  assert.strictEqual(t2.porTipo[0].n, 1); assert.strictEqual(t2.porTipo[0].roiCierre, -100); assert.strictEqual(t2.porFuerza[0].clave, '+2');
 });
 console.log((process.exitCode ? '✗ ' : '✓ ') + ok + ' pruebas pasaron');

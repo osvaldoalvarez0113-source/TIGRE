@@ -201,6 +201,48 @@ function veredicto(g) {
   if (g.n >= 100 && g.roi <= -3) return 'pierde';
   return 'prueba';
 }
+/* ---------- picks anticipados ---------- */
+/* resuelve los anticipados de un juego terminado: al precio temprano, el mismo pick al cierre y el CLV */
+function resolverAnticipados(lista, j, box) {
+  let n = 0;
+  lista.forEach(a => {
+    if (a.jid !== j.id || a.res) return;
+    const m = j.m[a.mk]; if (!m) return;
+    const r = resultado(a.mt, a.lado, a.l, j, box, m); if (!r) return;
+    a.res = r; a.g = r === 'nula' ? 0 : +ganancia(a.c, r).toFixed(4);
+    const ci = j.cierre && j.cierre[a.mk];
+    if (ci && ci.c && r !== 'nula') {
+      const c = clv(a, ci); if (c) Object.assign(a, c);
+      const rc = resultado(a.mt, a.lado, R.lineaLado(a.mt, ci.l, a.lado), j, box, m);
+      if (rc && rc !== 'nula') a.gCierre = +ganancia(ci.c[a.lado], rc).toFixed(4);
+    }
+    a.marcador = j.dep === 'tenis' ? (j.det || '') : j.a.ab + ' ' + j.as + ' - ' + j.hs + ' ' + j.h.ab;
+    n++;
+  });
+  return n;
+}
+const NOM_ANT = { 'ficha|ml': '📅 Ganador · lado con más fuerza', 'ficha|sp': '📅 Hándicap · lado con más fuerza', 'ficha|tot': '📅 Total · lado con más fuerza', 'propFav|prop': '📅 Props · favorito al salir' };
+function tablaAnticipados(lista) {
+  const mas = g => {
+    const x = g.filter(a => a.gCierre !== undefined), base = agregar(g) || { n: 0 };
+    base.roiCierre = x.length ? +(x.reduce((s2, a) => s2 + a.gCierre, 0) / x.length * 100).toFixed(1) : null;
+    base.horas = g.length ? +(g.reduce((s2, a) => s2 + (a.horas || 0), 0) / g.length).toFixed(1) : null;
+    base.acierto = acierto(base);
+    return base;
+  };
+  const grupos2 = (clave, nombre, l) => {
+    const g = {}; l.forEach(a => { const k = clave(a); if (k == null) return; (g[k] = g[k] || []).push(a); });
+    return Object.keys(g).map(k => Object.assign({ clave: k, nombre: nombre(k) }, mas(g[k]))).filter(x => x.n > 0);
+  };
+  const res = lista.filter(a => a.res && a.res !== 'nula');
+  return {
+    total: lista.length, resueltos: res.length, pendientes: lista.filter(a => !a.res).length,
+    porTipo: grupos2(a => a.tipo + '|' + a.mt, k => NOM_ANT[k] || k, res),
+    porFuerza: grupos2(a => (a.tipo === 'ficha' && a.fz ? Z.grupo(a.fz.p) : null), k => Z.NOM_GRUPO[k] || k, res)
+      .sort((a, b) => ['+3', '+2', '+1', '0', 'neg'].indexOf(a.clave) - ['+3', '+2', '+1', '0', 'neg'].indexOf(b.clave))
+  };
+}
+
 /* sello de aciertos (aparte de la rentabilidad): lo que más acierta, aunque pague poco
    alto  100+ resueltas y acierta 60% o más · va  30+ resueltas y acierta 60% o más (todavía puede cambiar) */
 function acierto(g) {
@@ -209,4 +251,4 @@ function acierto(g) {
   if (g.n >= 30 && g.gana >= 60) return 'va';
   return null;
 }
-module.exports = { acierto, filasFuerza, tablaFuerza, unicas, veredicto, resultado, clv, resolverSenales, filasCalibracion, agregar, tablas, NOM_TIPO, NOM_MT, dec };
+module.exports = { resolverAnticipados, tablaAnticipados, acierto, filasFuerza, tablaFuerza, unicas, veredicto, resultado, clv, resolverSenales, filasCalibracion, agregar, tablas, NOM_TIPO, NOM_MT, dec };

@@ -80,7 +80,7 @@ details.fz{margin-top:6px}details.fz summary{list-style:none}details.fz summary:
 .resumen .card{margin:0;text-align:center;padding:11px 6px}
 .resumen .meta{font-size:11.5px}
 nav{position:fixed;left:0;right:0;bottom:0;z-index:9;display:flex;justify-content:space-around;background:rgba(18,18,21,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:8px 6px calc(8px + env(safe-area-inset-bottom))}
-nav button{flex:1;background:none;border:0;color:var(--mut);font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0}
+nav button{flex:1;background:none;border:0;color:var(--mut);font-size:10.5px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0}
 nav button span{font-size:21px;filter:grayscale(1);opacity:.7}
 nav button.on{color:var(--oro)}nav button.on span{filter:none;opacity:1}
 p{margin:6px 0}
@@ -94,12 +94,14 @@ p{margin:6px 0}
 </header>
 <main>
   <section class="vista on" id="v-senales"></section>
+  <section class="vista" id="v-antes"></section>
   <section class="vista" id="v-juegos"></section>
   <section class="vista" id="v-medir"></section>
   <section class="vista" id="v-info"></section>
 </main>
 <nav>
   <button class="on" data-v="senales"><span>🎯</span>Señales</button>
+  <button data-v="antes"><span>📅</span>Antes</button>
   <button data-v="juegos"><span>📊</span>Líneas</button>
   <button data-v="medir"><span>🧪</span>Medición</button>
   <button data-v="info"><span>📖</span>Cómo funciona</button>
@@ -145,9 +147,9 @@ const sig = v => v == null ? '—' : '<span class="' + (v > 0 ? 'pos' : (v < 0 ?
 async function cargar(f) { try { const r = await fetch(BASE + f + '?v=' + Math.floor(Date.now() / 3e5)); return r.ok ? await r.json() : null; } catch (e) { return null; } }
 
 async function inicio() {
-  const [hoy, sen, med, hist, est] = await Promise.all(['hoy.json', 'senales-recientes.json', 'medicion.json', 'historia.json', 'estado.json'].map(cargar));
-  Object.assign(D, { hoy, sen: sen || [], med, hist, est, _jx: null });
-  pintarEstado(); pintarSenales(); pintarJuegos(); pintarMedicion(); pintarInfo();
+  const [hoy, sen, med, hist, est, ant] = await Promise.all(['hoy.json', 'senales-recientes.json', 'medicion.json', 'historia.json', 'estado.json', 'anticipados-recientes.json'].map(cargar));
+  Object.assign(D, { hoy, sen: sen || [], med, hist, est, ant: ant || [], _jx: null });
+  pintarEstado(); pintarSenales(); pintarAntes(); pintarJuegos(); pintarMedicion(); pintarInfo();
 }
 function pintarEstado() {
   const e = D.est;
@@ -287,6 +289,63 @@ function pintarSenales() {
   $('#v-senales').querySelector('[data-p]').onclick = () => { PROPS = !PROPS; pintarSenales(); };
   enlazarChips($('#v-senales'), pintarSenales);
 }
+/* ---------- 📅 picks anticipados ---------- */
+function recordAnt(tipo, mt) {
+  const t = D.med && D.med.anticipados, g = t && (t.porTipo || []).find(x => x.clave === tipo + '|' + mt);
+  if (!g || !g.n) return '';
+  return '<div class="rec">Este tipo de pick: 🎯 acierta <b>' + pct(g.gana) + '</b> en ' + g.n + ' (prometía ' + pct(g.promete) + ') · ROI temprano ' + sig(g.roi) + ' · al cierre ' + sig(g.roiCierre) + ' · línea mejor antes ' + pct(g.clvFavor) + ' ' + (ACIERTO[g.acierto] || '') + '</div>';
+}
+/* cómo se movió la línea DESPUÉS de congelar el pick: a favor = te adelantaste (lo que buscamos) */
+function ahoraAnt(a) {
+  const j = juegoDe(a.jid); if (!j) return null;
+  if (j.st !== 'pre') return { sem: 'gris', txt: '🔒 Ya empezó · se resuelve al terminar' };
+  const m = j.m[a.mk]; if (!m || !m.ahora) return null;
+  const c = m.ahora.c[a.lado], L = m.ahora.l == null ? null : (a.mt === 'sp' && a.lado === 1 ? -m.ahora.l : m.ahora.l);
+  const linea = L == null ? cuota(c) : 'línea ' + (a.mt === 'sp' ? fmtL(L) : L) + ' · ' + cuota(c);
+  let d = 0;                                             /* + = la línea se movió a favor del pick (ahora está peor para entrar) */
+  if (L != null && a.l != null && L !== a.l) d = a.mt === 'sp' ? a.l - L : (a.lado === 0 ? L - a.l : a.l - L);
+  else d = (imp(c) - imp(a.c)) * 100;
+  if (Math.abs(d) < 0.3) return { sem: 'amarillo', txt: '➖ Ahora: ' + linea + ' · la línea no se ha movido' };
+  return d > 0 ? { sem: 'verde', txt: '✅ Ahora: ' + linea + ' · te adelantaste: la línea se movió a tu favor' }
+    : { sem: 'rojo', txt: '⚠️ Ahora: ' + linea + ' · la línea se movió en contra del pick' };
+}
+function bloqueAnt(a) {
+  const prec = cuota(a.c);
+  let h = '<div class="mov"><div class="fila"><span class="txt">📅 ' + esc(a.txt) + '</span>' + (a.fz ? insignia({ puntaje: a.fz.p, favor: a.fz.f, contra: a.fz.c, n: a.fz.n }) : '<span class="sello">favorito al salir</span>') + '</div>' +
+    '<div class="desc">Tomado a <b>' + prec + '</b> · ' + Math.round(a.horas) + ' h antes del juego</div>';
+  if (a.res) {
+    const cierre = a.cCierre != null ? ' · cerró a ' + cuota(a.cCierre) + (a.lCierre != null && a.lCierre !== a.l ? ' (línea ' + (a.mt === 'sp' ? fmtL(a.lCierre) : a.lCierre) + ')' : '') : '';
+    const mejor = a.clvSigno > 0 ? ' · <span class="pos">la línea de antes era mejor</span>' : (a.clvSigno < 0 ? ' · <span class="neg">al cierre estaba mejor</span>' : '');
+    h += '<div class="fila" style="margin-top:4px"><span class="res ' + a.res + '">' + ({ gana: '✓ Ganó', pierde: '✗ Perdió', push: '= Push', nula: '— Nula' }[a.res]) + '</span><span class="meta">' + esc(a.marcador || '') + '</span></div><div class="meta">' + cierre + mejor + '</div>';
+  } else {
+    const x = ahoraAnt(a);
+    if (x) h += '<div class="ahora ' + x.sem + '">' + x.txt + '</div>';
+    h += recordAnt(a.tipo, a.mt);
+  }
+  if (a.fz && a.fz.pts) h += '<details class="fz"><summary>💪 ¿por qué este lado?</summary>' + puntosHtml(a.fz.pts) + '</details>';
+  return h + '</div>';
+}
+function pintarAntes() {
+  const ahora = Date.now(), L2 = D.ant.filter(a => pasaLiga(a.liga));
+  const juegosDe = l => { const g = {}; l.forEach(a => { (g[a.jid] = g[a.jid] || []).push(a); }); return Object.values(g); };
+  const tarjeta = (l, props) => {
+    const a0 = l[0], j = juegoDe(a0.jid), nombre = j ? (j.dep === 'tenis' ? j.h.n + ' vs ' + j.a.n : j.a.n + ' @ ' + j.h.n) : a0.partido;
+    const fichas = l.filter(a => a.tipo === 'ficha').sort((x, y) => (y.fz ? y.fz.p : 0) - (x.fz ? x.fz.p : 0)), pr = l.filter(a => a.tipo === 'propFav');
+    return '<div class="card partido"><div class="fila"><span class="eq">' + esc(nombre) + '</span><span class="meta">' + hora(a0.ts) + '</span></div><div class="meta">' + esc(a0.liga) + '</div>' +
+      fichas.map(bloqueAnt).join('') +
+      (pr.length ? '<details><summary>👤 Props · favorito al salir (' + pr.length + ')</summary>' + pr.map(bloqueAnt).join('') + '</details>' : '') + '</div>';
+  };
+  const porJugar = juegosDe(L2.filter(a => !a.res && a.ts > ahora)).sort((x, y) => x[0].ts - y[0].ts);
+  const hechos = juegosDe(L2.filter(a => a.res)).sort((x, y) => y[0].ts - x[0].ts).slice(0, 30);
+  let h = '<div class="aviso">📅 <b>Adelantarse en vez de perseguir.</b> Un día antes, TIGRE congela el lado con más fuerza de cada juego (ganador, hándicap y total) con su precio. En props congela el favorito apenas sale la línea. Después mide si se acertó, si la línea de antes era mejor que la del cierre y cuánto habría dado.</div>';
+  h += chipsLigas(D.ant.filter(a => !a.res && a.ts > ahora).map(a => a.liga));
+  h += '<h2>Por jugar · ' + porJugar.length + ' partidos</h2>' + (porJugar.length ? porJugar.map(l => tarjeta(l)).join('') : '<div class="vacio">Todavía no hay picks congelados. Se congelan entre 26 y 3 horas antes de cada juego.</div>');
+  h += '<h2>Resueltos (últimos 3 días)</h2>' + (hechos.length ? hechos.map(l => tarjeta(l)).join('') : '<div class="vacio">Todavía no se ha resuelto ninguno.</div>');
+  h += '<p class="nota">✅ te adelantaste = después de congelar el pick, la línea se movió hacia ese lado (el mercado te dio la razón). ⚠️ = se movió en contra. ➖ = no se ha movido.</p>';
+  $('#v-antes').innerHTML = h;
+  enlazarChips($('#v-antes'), pintarAntes);
+}
+
 /* línea de tendencia: probabilidad del local (o del Más); en hándicap y total, la línea (▲ = local más favorito / total más alto) */
 function spark(serie, tipo) {
   const val = x => tipo === 'sp' ? (x[2] == null ? null : -x[2]) : (tipo === 'tot' ? x[2] : x[1]);
@@ -397,6 +456,14 @@ function pintarMedicion() {
     h += '<h2>Por deporte</h2>' + tabla(m.porDeporte, COLS_SEN);
     h += '<p class="nota"><b>Gana</b> = % de aciertos sin contar push. <b>Prometía</b> = lo que decía la cuota (sin margen) en el momento de la señal: si Gana queda por encima de Prometía con muchas señales, ahí hay algo. <b>ROI</b> = apostando 1 a la cuota de la señal. <b>En contra</b> = apostando al otro lado. <b>CLV +</b> = % de veces que el cierre terminó mejor para quien entró en la señal.</p>';
   }
+  const an = m && m.anticipados;
+  h += '<h2>📅 Picks anticipados</h2>';
+  if (!an || !an.resueltos) h += '<div class="aviso">Todavía no hay picks anticipados resueltos' + (an && an.total ? ' (van ' + an.total + ' congelados, esperando su juego)' : '') + '. Aquí vas a ver si adelantarse acierta más y consigue mejores líneas que jugar al cierre.</div>';
+  else {
+    const COLS_ANT = [['Pick', x => esc(x.nombre)], ['N', x => x.n], ['Acierta', x => '<b>' + pct(x.gana) + '</b>'], ['Prometía', x => pct(x.promete)], ['ROI antes', x => sig(x.roi)], ['ROI cierre', x => sig(x.roiCierre)], ['Línea mejor antes', x => pct(x.clvFavor)]];
+    h += '<div class="card">' + tabla(an.porTipo, COLS_ANT) + '<p class="nota"><b>ROI antes</b> = jugando al precio congelado. <b>ROI cierre</b> = el mismo pick jugado al cierre. <b>Línea mejor antes</b> = % de veces que adelantarse consiguió mejor línea que el cierre. Si «ROI antes» le gana a «ROI cierre» y la línea mejor antes pasa del 55%, adelantarse sirve.</p></div>';
+    if (an.porFuerza && an.porFuerza.length) h += '<div class="card"><b>Según la fuerza de la ficha</b>' + tabla(an.porFuerza, COLS_ANT) + '</div>';
+  }
   const fc = m && m.fuerzaCierre;
   h += '<h2>💪 Ficha de fuerza</h2>';
   const COLS_FZ = [['Fuerza', f => esc(f.nombre)], ['N', f => f.n], ['Gana', f => pct(f.gana)], ['Prometía', f => pct(f.promete)], ['ROI', f => sig(f.roi)], ['±', f => f.margen == null ? '—' : f.margen]];
@@ -447,6 +514,9 @@ function pintarInfo() {
     <li><b>📋 Contexto:</b> fútbol: puntos en los últimos 5 (3+ de diferencia). NBA, NHL, NFL y NCAA: % de victorias en casa contra fuera (10+ pts).</li>
   </ul><p>✅ a favor · ❌ en contra · ➖ hay dato pero no inclina · ⚪ no hay dato. La fuerza = a favor − en contra. La ficha muestra el lado con más fuerza.</p>
   <p class="nota">Ojo: en fútbol, en tu propia liga de modelos el mercado le gana al Modelo OVA. Por eso la ficha se mide sola: al empezar cada juego se guarda y al terminar se ve si las fichas fuertes ganan más de lo que prometía su cuota. Hasta que eso pase, la ficha explica, no garantiza.</p></div>
+  <h2>📅 Picks anticipados</h2>
+  <div class="card"><p>En vez de perseguir la línea cuando ya se movió, TIGRE se <b>adelanta</b>: entre 26 y 3 horas antes de cada juego congela el lado con más fuerza de la ficha (ganador, hándicap y total) con su precio. En props congela el favorito apenas sale la línea (las primeras líneas suelen ser las más flojas).</p>
+  <p class="nota">Se mide en aciertos, en rendimiento al precio de antes contra el mismo pick al cierre, y en cuántas veces la línea de antes era mejor. Si te avisa un 📅 con 💪 +2 o más, es un pick congelado con fuerza.</p></div>
   <h2>Cómo leer la medición</h2>
   <div class="card"><p>La pregunta es una sola: <b>¿esa señal acierta más de lo que promete su cuota?</b> Si una señal promete 55% y gana 55%, no hay ventaja (y el margen de la casa te come). Solo vale la que gane claramente por encima, con cientos de casos, y que además deje el cierre a favor (CLV +).</p></div>
   <h2>Los sellos</h2>

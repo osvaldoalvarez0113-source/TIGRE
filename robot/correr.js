@@ -12,7 +12,7 @@
      5. Avisa al teléfono (ntfy) las señales nuevas.
    =================================================================== */
 const fs = require('fs'), path = require('path');
-const L = require('./lib.js'), C = require('./config.js'), F = require('./fuentes.js'), R = require('./registro.js'), M = require('./medir.js'), H = require('./historia.js'), Z = require('./fuerza.js');
+const L = require('./lib.js'), C = require('./config.js'), F = require('./fuentes.js'), R = require('./registro.js'), M = require('./medir.js'), H = require('./historia.js'), Z = require('./fuerza.js'), A = require('./anticipado.js');
 const REGISTRO_OVA = 'https://raw.githubusercontent.com/osvaldoalvarez0113-source/ODDX/liga/liga-registro.json';
 
 const HORA = 36e5, DIA = 24 * HORA;
@@ -35,6 +35,7 @@ async function main() {
   let senales = leer('senales.json', []);
   let calib = leer('calibracion.json', []);
   let fuerza = leer('fuerza.json', []);
+  const anticipados = leer('anticipados.json', []);
 
   /* ---------- 1. juegos: ayer, hoy y mañana (día del Este); NFL y NCAA Football toda la semana ---------- */
   const archivos = {};                                  /* dia → {id: juego}; se abren a medida que hacen falta */
@@ -165,12 +166,16 @@ async function main() {
     senales.push(r); nuevas.push(r);
   }));
 
+  /* ---------- 3b. picks anticipados (la idea de adelantarse): se congelan una sola vez, temprano ---------- */
+  const yaAnt = new Set(anticipados.map(a => a.id)), nuevosAnt = [];
+  juegos.forEach(j => { try { A.congelar(j, AHORA, yaAnt).forEach(a => { anticipados.push(a); yaAnt.add(a.id); nuevosAnt.push(a); }); } catch (e) { err('anticipado ' + j.id, e); } });
+
   /* ---------- 4. juegos empezados y terminados ---------- */
   for (const j of juegos) {
     if (j.st !== 'pre' && j.ficha && !j.fichaCierre) j.fichaCierre = j.ficha;       /* la ficha que tenía al empezar */
     if (j.st !== 'pre' && Object.keys(j.m).length && !j.cierre && j.dep === 'tenis') R.fijarCierre(j);
     if (j.dep === 'tenis') {
-      if (!j.resuelto && AHORA - j.ts > 45 * 60e3) { const r = await resolverTenis(j, senales); if (r) { calib = calib.concat(r.calib); fuerza = fuerza.concat(r.fuerza); } }
+      if (!j.resuelto && AHORA - j.ts > 45 * 60e3) { const r = await resolverTenis(j, senales, anticipados); if (r) { calib = calib.concat(r.calib); fuerza = fuerza.concat(r.fuerza); } }
       continue;
     }
     if (j.st !== 'pre' && Object.keys(j.m).length && !j.cierre) {
@@ -191,6 +196,7 @@ async function main() {
     if (hayProps) { try { DIAG.pedidos++; box = await F.bajarBox(j.dep, j.id); } catch (e) { err('boxscore ' + j.id, e); continue; } }
     if (hayProps && (!box || !Object.keys(box).length)) { err('boxscore vacío', j.id); continue; }   /* se reintenta en la próxima vuelta */
     M.resolverSenales(senales, j, box);
+    M.resolverAnticipados(anticipados, j, box);
     calib = calib.concat(M.filasCalibracion(j, box));
     fuerza = fuerza.concat(M.filasFuerza(j, box));
     j.resuelto = AHORA;
@@ -199,7 +205,7 @@ async function main() {
   /* ---------- 5. guardar juegos (los de días viejos ya resueltos no se vuelven a abrir) ---------- */
   Object.keys(archivos).forEach(d => { if (Object.keys(archivos[d]).length) escribir('juegos/' + d + '.json', archivos[d]); });
   /* señales de juegos fuera de la ventana que siguen sin resolver: se miran sus archivos */
-  const pendientes = senales.filter(s => !s.res && !juegoPorId[s.jid] && AHORA - s.ts < 5 * DIA);
+  const pendientes = senales.concat(anticipados).filter(s => !s.res && !juegoPorId[s.jid] && AHORA - s.ts < 5 * DIA);
   const diasPend = [...new Set(pendientes.map(s => L.diaET(s.ts)))];
   for (const d of diasPend) {
     const a = leer('juegos/' + d + '.json', null); if (!a) continue;
@@ -207,7 +213,7 @@ async function main() {
     for (const s of pendientes.filter(x => L.diaET(x.ts) === d)) {
       const j = a[s.jid]; if (!j || j.resuelto) continue;
       if (j.ficha && !j.fichaCierre && j.st !== 'pre') j.fichaCierre = j.ficha;
-      if (j.dep === 'tenis') { const r = await resolverTenis(j, senales); if (r) { calib = calib.concat(r.calib); fuerza = fuerza.concat(r.fuerza); cambio = true; } continue; }
+      if (j.dep === 'tenis') { const r = await resolverTenis(j, senales, anticipados); if (r) { calib = calib.concat(r.calib); fuerza = fuerza.concat(r.fuerza); cambio = true; } continue; }
       try {
         const evs = await F.bajarScoreboard(j.dep, j.ts); DIAG.pedidos++;
         const ev = evs.find(e => e.id === j.id); if (!ev) continue;
@@ -216,16 +222,17 @@ async function main() {
         const hayProps = Object.values(j.m).some(m => m.t === 'prop');
         const box = hayProps ? await F.bajarBox(j.dep, j.id) : null;
         if (j.ficha && !j.fichaCierre) j.fichaCierre = j.ficha;
-        M.resolverSenales(senales, j, box); calib = calib.concat(M.filasCalibracion(j, box)); fuerza = fuerza.concat(M.filasFuerza(j, box)); j.resuelto = AHORA; cambio = true;
+        M.resolverSenales(senales, j, box); M.resolverAnticipados(anticipados, j, box); calib = calib.concat(M.filasCalibracion(j, box)); fuerza = fuerza.concat(M.filasFuerza(j, box)); j.resuelto = AHORA; cambio = true;
       } catch (e) { err('pendiente ' + s.jid, e); }
     }
     if (cambio) escribir('juegos/' + d + '.json', a);
   }
   /* las señales de juegos suspendidos o que nunca se jugaron se cierran como nulas a los 5 días */
-  senales.forEach(s => { if (!s.res && AHORA - s.ts > 5 * DIA) s.res = 'nula'; });
+  senales.concat(anticipados).forEach(s => { if (!s.res && AHORA - s.ts > 5 * DIA) s.res = 'nula'; });
 
   /* ---------- 6. medición ---------- */
   const tab = M.tablas(senales, calib, fuerza);
+  tab.anticipados = M.tablaAnticipados(anticipados);
   tab.generado = new Date(AHORA).toISOString();
 
   /* ---------- 7. estudio histórico (una vez al día, con el archivo de cierres de ODDX) ---------- */
@@ -250,6 +257,8 @@ async function main() {
   escribir('senales-recientes.json', senales.filter(s => AHORA - s.t < 4 * DIA).sort((a, b) => b.t - a.t));
   escribir('calibracion.json', calib);
   escribir('fuerza.json', fuerza);
+  escribir('anticipados.json', anticipados);
+  escribir('anticipados-recientes.json', anticipados.filter(a => AHORA - a.ts < 3 * DIA && a.ts - AHORA < 3 * DIA));
   escribir('medicion.json', tab);
   if (hist) escribir('historia.json', hist);
 
@@ -269,6 +278,10 @@ async function main() {
   else if (toca || urgente) { aviso = await avisar(cola, tab); if (/^enviado/.test(aviso)) { estado.cola = []; estado.ultimoAviso = AHORA; } }
   else { aviso = 'en cola (' + cola.length + '), sale en la próxima tanda'; estado.cola = cola.map(s => s.id); }
 
+  /* anticipados con fuerza +2 o más: un aviso aparte, apenas se congelan */
+  const antFuertes = nuevosAnt.filter(a => a.tipo === 'ficha' && a.fz && a.fz.p >= 2);
+  if (!primera && antFuertes.length && process.env.NTFY_TOPIC) aviso += ' · anticipados: ' + await avisarAnticipados(antFuertes);
+
   /* ---------- 10. estado ---------- */
   Object.keys(estado.vistas).forEach(k => { if (AHORA - estado.vistas[k] > 10 * DIA) delete estado.vistas[k]; });
   estado.corridas = (estado.corridas || 0) + 1;
@@ -278,13 +291,24 @@ async function main() {
   escribir('estado.json', estado);
 
   console.log('TIGRE ' + estado.ultima + ' · juegos ' + juegos.length + ' · fotografiados ' + porFoto.length + ' (+' + tenisVivos + ' de tenis) · mercados ' + porFoto.reduce((a, j) => a + Object.keys(j.m).length, 0) +
-    ' · señales nuevas ' + nuevas.length + ' · señales en total ' + senales.length + ' (resueltas ' + senales.filter(s => s.res).length + ') · fichas ' + conFicha + (idxReg ? '' : ' (sin registro OVA)') + ' · fuerza medida ' + fuerza.length + ' · calibración ' + calib.length + ' · pedidos ' + DIAG.pedidos + ' · aviso: ' + aviso);
+    ' · señales nuevas ' + nuevas.length + ' · señales en total ' + senales.length + ' (resueltas ' + senales.filter(s => s.res).length + ') · fichas ' + conFicha + (idxReg ? '' : ' (sin registro OVA)') + ' · fuerza medida ' + fuerza.length + ' · anticipados ' + anticipados.length + ' (+' + nuevosAnt.length + ' nuevos, ' + anticipados.filter(a => a.res).length + ' resueltos) · calibración ' + calib.length + ' · pedidos ' + DIAG.pedidos + ' · aviso: ' + aviso);
   nuevas.slice(0, 25).forEach(s => console.log('  ' + s.liga + ' ' + s.partido + ' · ' + s.tipo + ' · ' + s.txt + ' · ' + s.desc + ' · ' + s.mag + ' ' + s.unidad));
   if (DIAG.errores.length) { console.log('errores: ' + DIAG.errores.length); DIAG.errores.slice(0, 15).forEach(e => console.log('  ' + e)); }
 }
 
+async function avisarAnticipados(lista) {
+  const hora = ts => new Date(ts).toLocaleTimeString('es-US', { timeZone: 'America/Chicago', weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  const lineas = lista.slice(0, 10).map(a => '📅 ' + a.liga + ' ' + a.partido + ' (' + hora(a.ts) + ', faltan ' + Math.round(a.horas) + ' h)\n   ' + a.txt + ' · ' + (a.c > 0 ? '+' : '') + a.c + ' · 💪 +' + a.fz.p + ' (' + a.fz.f + ' de ' + a.fz.n + ')');
+  try {
+    const titulo = 'TIGRE · ' + lista.length + (lista.length === 1 ? ' pick anticipado' : ' picks anticipados') + ' con fuerza';
+    const u = 'https://ntfy.sh/' + encodeURIComponent(process.env.NTFY_TOPIC) + '?title=' + encodeURIComponent(titulo) + '&tags=calendar&click=' + encodeURIComponent(PAGINA);
+    const r = await fetch(u, { method: 'POST', body: lineas.join('\n') });
+    return r.ok ? 'enviado (' + lista.length + ')' : 'ntfy HTTP ' + r.status;
+  } catch (e) { return 'ntfy falló: ' + e.message; }
+}
+
 /* tenis: pide el resultado a Kalshi; si ya está, cierra el partido, resuelve sus señales y devuelve las filas de calibración */
-async function resolverTenis(j, senales) {
+async function resolverTenis(j, senales, anticipados) {
   let r;
   try { DIAG.pedidos++; r = await F.bajarResultadoTenis(j.id); } catch (e) { err('resultado tenis ' + j.id, e); return null; }
   if (!r || !r.fin) return null;
@@ -294,11 +318,13 @@ async function resolverTenis(j, senales) {
   if (r.nulo) {                                   /* retiro o no se jugó: Kalshi paga a precio justo → las señales quedan nulas */
     j.cancel = true; j.det = 'Retiro / nulo';
     senales.forEach(s => { if (s.jid === j.id && !s.res) { s.res = 'nula'; s.g = 0; } });
+    (anticipados || []).forEach(a => { if (a.jid === j.id && !a.res) { a.res = 'nula'; a.g = 0; } });
     return { calib: [], fuerza: [] };
   }
   j.hs = r.ganador === 0 ? 1 : 0; j.as = r.ganador === 1 ? 1 : 0; j.det = 'Final · ganó ' + (r.ganador === 0 ? j.h.n : j.a.n);
   M.resolverSenales(senales, j, null);
-  senales.forEach(s => { if (s.jid === j.id && s.res) s.marcador = 'Ganó ' + (r.ganador === 0 ? j.h.n : j.a.n); });
+  M.resolverAnticipados(anticipados || [], j, null);
+  senales.concat(anticipados || []).forEach(s => { if (s.jid === j.id && s.res) s.marcador = 'Ganó ' + (r.ganador === 0 ? j.h.n : j.a.n); });
   return { calib: M.filasCalibracion(j, null), fuerza: M.filasFuerza(j, null) };
 }
 

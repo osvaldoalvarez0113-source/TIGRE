@@ -10,5 +10,6 @@ Sistema aparte de OVA/ODDX para **leer el movimiento de las líneas** y medir qu
 
 Tenis: ATP, WTA, Challenger y Copa Davis con Kalshi como fuente (ESPN no trae cuotas de tenis).
 Ficha de fuerza (`robot/fuerza.js`): por partido, 📈 mercado + 🧠 Modelo OVA (registro de la liga de ODDX, solo lectura) + 🔀 Kalshi/Polymarket + 📋 forma o récord de ESPN; se mide al cierre de cada juego.
+📅 Picks anticipados (`robot/anticipado.js`): entre 26 y 3 h antes se congela el lado con más fuerza (ganador, hándicap, total) y, en props, el favorito apenas sale; se mide en aciertos, ROI antes vs al cierre y CLV.
 Señales: ⚡ movimiento rápido (2 h), 📈 movimiento desde la apertura, 🔀 Kalshi contra la casa. Umbrales en `robot/config.js`.
 Regla de oro: nada de plata real hasta tener 300–500 señales resueltas de un tipo.
