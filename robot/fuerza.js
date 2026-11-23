@@ -63,7 +63,15 @@ function probsRegistro(x, fuente, tres) {
   const o = tres ? [l, e, v] : [l, v], s = o.reduce((a, b) => a + b, 0);
   return s > 0 ? o.map(q => q / s) : null;
 }
-function fuenteModelo(x) { if (!x) return null; if (x.it.p.ova) return { k: 'ova', n: 'OVA' }; if (x.it.p.modelo) return { k: 'modelo', n: 'Modelo OVA' }; return null; }
+/* se usa el Modelo OVA propio y no «ova» (lo que muestra la app), porque la app ya lo mezcla con el mercado
+   y casi siempre diría lo mismo que la casa: aquí interesa una opinión independiente */
+function fuenteModelo(x) {
+  if (!x) return null;
+  if (x.it.p.modelo) return { k: 'modelo', n: 'Modelo OVA' };
+  if (x.it.p['modelo-solo']) return { k: 'modelo-solo', n: 'Modelo OVA' };
+  if (x.it.p.ova) return { k: 'ova', n: 'OVA' };
+  return null;
+}
 
 /* ---------- contexto: forma y récord ---------- */
 function puntosForma(f) { if (!f || !/^[WDL]+$/.test(f)) return null; return [...f.slice(-5)].reduce((a, c) => a + (c === 'W' ? 3 : (c === 'D' ? 1 : 0)), 0); }

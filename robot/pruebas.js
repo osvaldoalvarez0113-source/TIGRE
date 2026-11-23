@@ -194,7 +194,7 @@ function partidoFutbol() {
 }
 const REG = { items: {
   'futbol|401882803': { dep: 'futbol', ext: '401882803', local: 'Getafe', visita: 'Atlético Madrid', p: { modelo: [0.36, 0.38, 0.26], polymarket: [0.30, 0.43, 0.27] }, mk: { tot: { l: 2.5, p: { mercado: 0.48, modelo: 0.40 } } } },
-  'nba|9': { dep: 'nba', ext: '9', local: 'Miami Heat', visita: 'Oklahoma City Thunder', p: { ova: [0.70, 0.30, 0], mercado: [0.63, 0.37, 0] }, mk: { han: { l: -4.5, p: { mercado: 0.5, modelo: 0.56 } } } },
+  'nba|9': { dep: 'nba', ext: '9', local: 'Miami Heat', visita: 'Oklahoma City Thunder', p: { ova: [0.63, 0.37, 0], modelo: [0.70, 0.30, 0], mercado: [0.63, 0.37, 0] }, mk: { han: { l: -4.5, p: { mercado: 0.5, modelo: 0.56 } } } },
   'tenis|1': { dep: 'tenis', ext: '1', local: 'Jannik Sinner', visita: 'Carlos Alcaraz', p: { modelo: [0.58, 0.42, 0] } } } };
 t('fuerza: forma y récord', () => {
   assert.strictEqual(Z.puntosForma('WWDWW'), 13); assert.strictEqual(Z.puntosForma('LDLWD'), 5); assert.strictEqual(Z.puntosForma(''), null);
@@ -234,6 +234,12 @@ t('fuerza: tenis por apellido aunque venga al revés', () => {
   R.anotar(j, 'ml', 'ml', T0, { c: [110, -130] });
   const e = Z.evaluar(j, 'ml', 0, Z.indexarRegistro(REG));
   assert.ok(/42%/.test(e.pts.find(p => p[0] === 'modelo')[2]), JSON.stringify(e.pts));
+});
+t('fuerza: usa el Modelo OVA propio, no lo que muestra la app', () => {
+  const x = Z.itemDe(Z.indexarRegistro(REG), { dep: 'nba', id: '9' });
+  assert.deepStrictEqual(Z.probsRegistro(x, 'modelo', false).map(v => +v.toFixed(2)), [0.7, 0.3]);
+  const j = juego(); R.anotar(j, 'ml', 'ml', T0, { c: [-170, 150] });
+  assert.ok(/Modelo OVA le da 70%/.test(Z.evaluar(j, 'ml', 0, Z.indexarRegistro(REG)).pts.find(p => p[0] === 'modelo')[2]));
 });
 t('fuerza: grupos para medir', () => {
   assert.strictEqual(Z.grupo(4), '+3'); assert.strictEqual(Z.grupo(2), '+2'); assert.strictEqual(Z.grupo(0), '0'); assert.strictEqual(Z.grupo(-2), 'neg');
