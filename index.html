@@ -112,6 +112,8 @@ function chipsLigas(ligas) {
   return h;
 }
 function enlazarChips(raiz, repintar) {
+  /* el filtro escogido queda a la vista aunque la fila de filtros sea más ancha que la pantalla */
+  raiz.querySelectorAll('.chips').forEach(f => { const on = f.querySelector('.chip.on'); if (on) f.scrollLeft = on.offsetLeft - 16; });
   raiz.querySelectorAll('[data-depo]').forEach(b => b.onclick = () => { DEPO = b.dataset.depo; LIGA = 'todas'; repintar(); });
   raiz.querySelectorAll('[data-liga]').forEach(b => b.onclick = () => { LIGA = b.dataset.liga; repintar(); });
 }
