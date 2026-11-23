@@ -12,7 +12,8 @@
      5. Avisa al teléfono (ntfy) las señales nuevas.
    =================================================================== */
 const fs = require('fs'), path = require('path');
-const L = require('./lib.js'), C = require('./config.js'), F = require('./fuentes.js'), R = require('./registro.js'), M = require('./medir.js'), H = require('./historia.js');
+const L = require('./lib.js'), C = require('./config.js'), F = require('./fuentes.js'), R = require('./registro.js'), M = require('./medir.js'), H = require('./historia.js'), Z = require('./fuerza.js');
+const REGISTRO_OVA = 'https://raw.githubusercontent.com/osvaldoalvarez0113-source/ODDX/liga/liga-registro.json';
 
 const HORA = 36e5, DIA = 24 * HORA;
 const DIR = process.argv[2] || 'datos';
@@ -33,6 +34,7 @@ async function main() {
   const primera = !estado.corridas;
   let senales = leer('senales.json', []);
   let calib = leer('calibracion.json', []);
+  let fuerza = leer('fuerza.json', []);
 
   /* ---------- 1. juegos: ayer, hoy y mañana (día del Este); NFL y NCAA Football toda la semana ---------- */
   const archivos = {};                                  /* dia → {id: juego}; se abren a medida que hacen falta */
@@ -143,21 +145,32 @@ async function main() {
     } catch (e) { err('kalshi ' + dep, e); }
   }
 
+  /* ---------- ficha de fuerza: TIGRE + Modelo OVA (registro de la liga de ODDX, solo lectura) + Kalshi/Polymarket + ESPN ---------- */
+  let idxReg = null;
+  try { DIAG.pedidos++; const reg = await L.pedir(REGISTRO_OVA); if (reg) idxReg = Z.indexarRegistro(reg); } catch (e) { err('registro OVA', e); }
+  let conFicha = 0;
+  juegos.forEach(j => {
+    if (j.st !== 'pre' || j.cancel || !Object.keys(j.m).length) return;
+    try { const f = Z.fichaJuego(j, idxReg); if (f) { j.ficha = f; conFicha++; } } catch (e) { err('ficha ' + j.id, e); }
+  });
+
   /* ---------- 3. señales ---------- */
   const nuevas = [];
   juegos.forEach(j => R.detectar(j, AHORA).forEach(s => {
     if (estado.vistas[s.clave]) return;
     estado.vistas[s.clave] = AHORA;
     const r = R.registroSenal(j, s, AHORA, j.liga);
+    if (r.mt !== 'prop') { try { r.fz = Z.resumen(Z.evaluar(j, s.mk, s.lado, idxReg)); } catch (e) { err('fuerza señal ' + r.id, e); } }
     r.primera = primera || undefined;
     senales.push(r); nuevas.push(r);
   }));
 
   /* ---------- 4. juegos empezados y terminados ---------- */
   for (const j of juegos) {
+    if (j.st !== 'pre' && j.ficha && !j.fichaCierre) j.fichaCierre = j.ficha;       /* la ficha que tenía al empezar */
     if (j.st !== 'pre' && Object.keys(j.m).length && !j.cierre && j.dep === 'tenis') R.fijarCierre(j);
     if (j.dep === 'tenis') {
-      if (!j.resuelto && AHORA - j.ts > 45 * 60e3) { const r = await resolverTenis(j, senales); if (r) calib = calib.concat(r); }
+      if (!j.resuelto && AHORA - j.ts > 45 * 60e3) { const r = await resolverTenis(j, senales); if (r) { calib = calib.concat(r.calib); fuerza = fuerza.concat(r.fuerza); } }
       continue;
     }
     if (j.st !== 'pre' && Object.keys(j.m).length && !j.cierre) {
@@ -179,6 +192,7 @@ async function main() {
     if (hayProps && (!box || !Object.keys(box).length)) { err('boxscore vacío', j.id); continue; }   /* se reintenta en la próxima vuelta */
     M.resolverSenales(senales, j, box);
     calib = calib.concat(M.filasCalibracion(j, box));
+    fuerza = fuerza.concat(M.filasFuerza(j, box));
     j.resuelto = AHORA;
   }
 
@@ -192,7 +206,8 @@ async function main() {
     let cambio = false;
     for (const s of pendientes.filter(x => L.diaET(x.ts) === d)) {
       const j = a[s.jid]; if (!j || j.resuelto) continue;
-      if (j.dep === 'tenis') { const r = await resolverTenis(j, senales); if (r) { calib = calib.concat(r); cambio = true; } continue; }
+      if (j.ficha && !j.fichaCierre && j.st !== 'pre') j.fichaCierre = j.ficha;
+      if (j.dep === 'tenis') { const r = await resolverTenis(j, senales); if (r) { calib = calib.concat(r.calib); fuerza = fuerza.concat(r.fuerza); cambio = true; } continue; }
       try {
         const evs = await F.bajarScoreboard(j.dep, j.ts); DIAG.pedidos++;
         const ev = evs.find(e => e.id === j.id); if (!ev) continue;
@@ -200,7 +215,8 @@ async function main() {
         if (!j.fin) continue;
         const hayProps = Object.values(j.m).some(m => m.t === 'prop');
         const box = hayProps ? await F.bajarBox(j.dep, j.id) : null;
-        M.resolverSenales(senales, j, box); calib = calib.concat(M.filasCalibracion(j, box)); j.resuelto = AHORA; cambio = true;
+        if (j.ficha && !j.fichaCierre) j.fichaCierre = j.ficha;
+        M.resolverSenales(senales, j, box); calib = calib.concat(M.filasCalibracion(j, box)); fuerza = fuerza.concat(M.filasFuerza(j, box)); j.resuelto = AHORA; cambio = true;
       } catch (e) { err('pendiente ' + s.jid, e); }
     }
     if (cambio) escribir('juegos/' + d + '.json', a);
@@ -209,7 +225,7 @@ async function main() {
   senales.forEach(s => { if (!s.res && AHORA - s.ts > 5 * DIA) s.res = 'nula'; });
 
   /* ---------- 6. medición ---------- */
-  const tab = M.tablas(senales, calib);
+  const tab = M.tablas(senales, calib, fuerza);
   tab.generado = new Date(AHORA).toISOString();
 
   /* ---------- 7. estudio histórico (una vez al día, con el archivo de cierres de ODDX) ---------- */
@@ -233,6 +249,7 @@ async function main() {
   escribir('senales.json', senales);
   escribir('senales-recientes.json', senales.filter(s => AHORA - s.t < 4 * DIA).sort((a, b) => b.t - a.t));
   escribir('calibracion.json', calib);
+  escribir('fuerza.json', fuerza);
   escribir('medicion.json', tab);
   if (hist) escribir('historia.json', hist);
 
@@ -257,11 +274,11 @@ async function main() {
   estado.corridas = (estado.corridas || 0) + 1;
   estado.ultima = new Date(AHORA).toISOString();
   const tenisVivos = juegos.filter(j => j.dep === 'tenis' && j.st === 'pre').length;
-  estado.ultimaVuelta = { juegos: juegos.length, fotografiados: porFoto.length + tenisVivos, tenis: tenisVivos, senalesNuevas: nuevas.length, pedidos: DIAG.pedidos, errores: DIAG.errores.slice(0, 20), aviso };
+  estado.ultimaVuelta = { juegos: juegos.length, fotografiados: porFoto.length + tenisVivos, tenis: tenisVivos, fichas: conFicha, registroOVA: !!idxReg, senalesNuevas: nuevas.length, pedidos: DIAG.pedidos, errores: DIAG.errores.slice(0, 20), aviso };
   escribir('estado.json', estado);
 
   console.log('TIGRE ' + estado.ultima + ' · juegos ' + juegos.length + ' · fotografiados ' + porFoto.length + ' (+' + tenisVivos + ' de tenis) · mercados ' + porFoto.reduce((a, j) => a + Object.keys(j.m).length, 0) +
-    ' · señales nuevas ' + nuevas.length + ' · señales en total ' + senales.length + ' (resueltas ' + senales.filter(s => s.res).length + ') · calibración ' + calib.length + ' · pedidos ' + DIAG.pedidos + ' · aviso: ' + aviso);
+    ' · señales nuevas ' + nuevas.length + ' · señales en total ' + senales.length + ' (resueltas ' + senales.filter(s => s.res).length + ') · fichas ' + conFicha + (idxReg ? '' : ' (sin registro OVA)') + ' · fuerza medida ' + fuerza.length + ' · calibración ' + calib.length + ' · pedidos ' + DIAG.pedidos + ' · aviso: ' + aviso);
   nuevas.slice(0, 25).forEach(s => console.log('  ' + s.liga + ' ' + s.partido + ' · ' + s.tipo + ' · ' + s.txt + ' · ' + s.desc + ' · ' + s.mag + ' ' + s.unidad));
   if (DIAG.errores.length) { console.log('errores: ' + DIAG.errores.length); DIAG.errores.slice(0, 15).forEach(e => console.log('  ' + e)); }
 }
@@ -273,15 +290,16 @@ async function resolverTenis(j, senales) {
   if (!r || !r.fin) return null;
   R.fijarCierre(j);
   j.fin = true; j.st = 'post'; j.resuelto = AHORA;
+  if (j.ficha && !j.fichaCierre) j.fichaCierre = j.ficha;
   if (r.nulo) {                                   /* retiro o no se jugó: Kalshi paga a precio justo → las señales quedan nulas */
     j.cancel = true; j.det = 'Retiro / nulo';
     senales.forEach(s => { if (s.jid === j.id && !s.res) { s.res = 'nula'; s.g = 0; } });
-    return [];
+    return { calib: [], fuerza: [] };
   }
   j.hs = r.ganador === 0 ? 1 : 0; j.as = r.ganador === 1 ? 1 : 0; j.det = 'Final · ganó ' + (r.ganador === 0 ? j.h.n : j.a.n);
   M.resolverSenales(senales, j, null);
   senales.forEach(s => { if (s.jid === j.id && s.res) s.marcador = 'Ganó ' + (r.ganador === 0 ? j.h.n : j.a.n); });
-  return M.filasCalibracion(j, null);
+  return { calib: M.filasCalibracion(j, null), fuerza: M.filasFuerza(j, null) };
 }
 
 /* juego compacto para la página: apertura, ahora, serie corta y señales */
@@ -298,8 +316,8 @@ function resumenJuego(j, senales) {
     if (m.t === 'prop') { x.n = m.n || ''; x.k = m.k; if (abre && abre.l === u.l && po && pa && Math.abs(pa[0] - po[0]) < 0.04) return; if (!abre) return; }
     mk[k] = x;
   });
-  const sj = senales.filter(s => s.jid === j.id).map(s => ({ id: s.id, mk: s.mk, lado: s.lado, tipo: s.tipo, txt: s.txt, desc: s.desc, mag: s.mag, unidad: s.unidad, nivel: s.nivel, t: s.t, c: s.c, res: s.res || null, prop: s.mt === 'prop' || undefined }));
-  return { id: j.id, dep: j.dep, liga: j.liga, ts: j.ts, st: j.st, det: j.det, h: j.h, a: j.a, hs: j.hs, as: j.as, m: mk, senales: sj };
+  const sj = senales.filter(s => s.jid === j.id).map(s => ({ fz: s.fz ? { p: s.fz.p, f: s.fz.f, c: s.fz.c, n: s.fz.n } : undefined, id: s.id, mk: s.mk, lado: s.lado, tipo: s.tipo, txt: s.txt, desc: s.desc, mag: s.mag, unidad: s.unidad, nivel: s.nivel, t: s.t, c: s.c, res: s.res || null, prop: s.mt === 'prop' || undefined }));
+  return { id: j.id, dep: j.dep, liga: j.liga, ts: j.ts, st: j.st, det: j.det, h: j.h, a: j.a, hs: j.hs, as: j.as, m: mk, senales: sj, ficha: j.st === 'pre' ? (j.ficha || null) : (j.fichaCierre || j.ficha || null) };
 }
 
 /* un solo aviso por vuelta; si el mismo movimiento sale como ⚡ y 📈 a la vez, va en una sola línea con el récord de su tipo */
@@ -317,7 +335,8 @@ async function avisar(lista, tab) {
   const items = Object.values(grupos).sort((a, b) => Math.max(...b.map(x => x.nivel)) - Math.max(...a.map(x => x.nivel)));
   const lineas = items.slice(0, 8).map(g => {
     const s = g.find(x => x.tipo !== 'acumulado') || g[0];
-    return g.map(x => ic[x.tipo]).join('') + ' ' + s.liga + ' ' + s.partido + ' (' + hora(s.ts) + ')\n   ' + s.txt + ' · ' + s.desc + record(s);
+    const fz = s.fz ? ' · 💪 ' + s.fz.f + '/' + s.fz.n + (s.fz.c ? ' (' + s.fz.c + ' en contra)' : '') : '';
+    return g.map(x => ic[x.tipo]).join('') + ' ' + s.liga + ' ' + s.partido + ' (' + hora(s.ts) + ')\n   ' + s.txt + ' · ' + s.desc + fz + record(s);
   });
   if (items.length > 8) lineas.push('… y ' + (items.length - 8) + ' más en la página');
   try {

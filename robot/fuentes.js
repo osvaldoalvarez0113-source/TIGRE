@@ -18,11 +18,16 @@ function parsearScoreboard(j, dep) {
     let h = null, a = null; c.competitors.forEach(x => { if (x.homeAway === 'home') h = x; else if (x.homeAway === 'away') a = x; });
     if (!h || !a || !h.team || !a.team) return;
     const st = (e.status && e.status.type) || {};
+    /* contexto para la ficha de fuerza: forma (fútbol, p. ej. «DWWLW») y récord total / en casa / fuera */
+    const ctx = x => {
+      const rec = {}; (x.records || []).forEach(r => { const t = r.type === 'total' || /overall|all splits/i.test(r.name || '') ? 'total' : (r.type === 'home' ? 'home' : (r.type === 'road' || r.type === 'away' ? 'road' : null)); if (t && r.summary && !rec[t]) rec[t] = r.summary; });
+      const o = {}; if (typeof x.form === 'string' && /^[WDL]+$/.test(x.form)) o.form = x.form; if (Object.keys(rec).length) o.rec = rec; return o;
+    };
     out.push({
       id: String(e.id), dep, ts: Date.parse(e.date),
       st: st.state || 'pre', fin: st.completed === true, det: st.shortDetail || st.detail || '',
-      h: { ab: h.team.abbreviation || '', n: h.team.shortDisplayName || h.team.displayName || '' },
-      a: { ab: a.team.abbreviation || '', n: a.team.shortDisplayName || a.team.displayName || '' },
+      h: Object.assign({ ab: h.team.abbreviation || '', n: h.team.shortDisplayName || h.team.displayName || '' }, ctx(h)),
+      a: Object.assign({ ab: a.team.abbreviation || '', n: a.team.shortDisplayName || a.team.displayName || '' }, ctx(a)),
       hs: num(h.score), as: num(a.score),
       cancel: /postpon|cancel|suspend/i.test(String(st.name || '') + ' ' + String(st.description || ''))
     });

@@ -1,7 +1,7 @@
 'use strict';
 /* TIGRE · pruebas sin red (node robot/pruebas.js). Si algo falla, el robot no corre. */
 const assert = require('assert');
-const L = require('./lib.js'), F = require('./fuentes.js'), R = require('./registro.js'), M = require('./medir.js'), H = require('./historia.js');
+const L = require('./lib.js'), F = require('./fuentes.js'), R = require('./registro.js'), M = require('./medir.js'), H = require('./historia.js'), Z = require('./fuerza.js');
 let ok = 0; const t = (n, f) => { try { f(); ok++; } catch (e) { console.log('✗ ' + n + ': ' + e.message); process.exitCode = 1; } };
 const HORA = 36e5;
 
@@ -182,5 +182,60 @@ t('progreso por tipo de señal', () => {
   const l = [{ jid: '1', mk: 'ml', tipo: 'rapido', mt: 'ml', lado: 0, t: 1, res: 'gana', p: 0.5, c: 100, g: 1 }, { jid: '2', mk: 'ml', tipo: 'rapido', mt: 'ml', lado: 0, t: 2 }];
   const pr = M.tablas(l, []).progreso[0];
   assert.strictEqual(pr.resueltas, 1); assert.strictEqual(pr.pendientes, 1);
+});
+/* ---------- ficha de fuerza ---------- */
+function partidoFutbol() {
+  const j = R.nuevoJuego({ id: '401882803', dep: 'esp', ts: T0 + 20 * HORA, st: 'pre', fin: false,
+    h: { ab: 'GET', n: 'Getafe', form: 'WWDWW' }, a: { ab: 'ATM', n: 'Atlético', form: 'LDLWD' }, hs: null, as: null }, 'La Liga');
+  /* [local, empate, visita]: la casa movió al Getafe de +300 a +220 */
+  R.anotar(j, 'ml', 'ml', T0, { c: [220, 230, 110] }, { c: [300, 240, -105] });
+  R.anotar(j, 'tot', 'tot', T0, { c: [-105, -115], l: 2.5 }, { c: [-110, -110], l: 2.5 });
+  return j;
+}
+const REG = { items: {
+  'futbol|401882803': { dep: 'futbol', ext: '401882803', local: 'Getafe', visita: 'Atlético Madrid', p: { modelo: [0.36, 0.38, 0.26], polymarket: [0.30, 0.43, 0.27] }, mk: { tot: { l: 2.5, p: { mercado: 0.48, modelo: 0.40 } } } },
+  'nba|9': { dep: 'nba', ext: '9', local: 'Miami Heat', visita: 'Oklahoma City Thunder', p: { ova: [0.70, 0.30, 0], mercado: [0.63, 0.37, 0] }, mk: { han: { l: -4.5, p: { mercado: 0.5, modelo: 0.56 } } } },
+  'tenis|1': { dep: 'tenis', ext: '1', local: 'Jannik Sinner', visita: 'Carlos Alcaraz', p: { modelo: [0.58, 0.42, 0] } } } };
+t('fuerza: forma y récord', () => {
+  assert.strictEqual(Z.puntosForma('WWDWW'), 13); assert.strictEqual(Z.puntosForma('LDLWD'), 5); assert.strictEqual(Z.puntosForma(''), null);
+  assert.deepStrictEqual(Z.pctRecord('8-2'), { pct: 0.8, txt: '8-2' }); assert.strictEqual(Z.pctRecord('1-1'), null);
+});
+t('fuerza: los 4 puntos del Getafe (fútbol, tres salidas)', () => {
+  const j = partidoFutbol(), idx = Z.indexarRegistro(REG);
+  const e = Z.evaluar(j, 'ml', 0, idx);
+  const est = Object.fromEntries(e.pts.map(p => [p[0], p[1]]));
+  assert.strictEqual(est.mercado, 'favor', e.pts[0][2]);       /* le entró dinero */
+  assert.strictEqual(est.modelo, 'favor', e.pts[1][2]);        /* modelo 36% contra la casa 29% */
+  assert.strictEqual(est.otros, 'neutro', e.pts[2][2]);        /* Polymarket 30% ≈ casa 29% */
+  assert.strictEqual(est.contexto, 'favor', e.pts[3][2]);      /* 13 pts contra 5 */
+  assert.strictEqual(e.puntaje, 3); assert.strictEqual(e.n, 4);
+  /* el empate no tiene contexto propio */
+  assert.strictEqual(Z.evaluar(j, 'ml', 1, idx).pts.find(p => p[0] === 'contexto')[1], 'sin');
+  /* la ficha del mercado escoge al Getafe */
+  assert.strictEqual(Z.fichaMercado(j, 'ml', idx).lado, 0);
+});
+t('fuerza: total con el modelo en la misma línea', () => {
+  const j = partidoFutbol(), idx = Z.indexarRegistro(REG);
+  const menos = Z.evaluar(j, 'tot', 1, idx);
+  assert.strictEqual(menos.pts.find(p => p[0] === 'modelo')[1], 'favor');      /* modelo: Menos 60% contra la casa ~51% */
+  assert.strictEqual(menos.pts.find(p => p[0] === 'otros')[1], 'sin');
+});
+t('fuerza: hándicap NBA, modelo solo si la línea coincide', () => {
+  const j = juego(); j.h.rec = { total: '12-6', home: '8-2' }; j.a.rec = { total: '14-4', road: '6-4' };
+  R.anotar(j, 'sp', 'sp', T0, { c: [-110, -110], l: -4.5 }, { c: [-110, -110], l: -2.5 });
+  const idx = Z.indexarRegistro(REG), e = Z.evaluar(j, 'sp', 0, idx);
+  const est = Object.fromEntries(e.pts.map(p => [p[0], p[1]]));
+  assert.strictEqual(est.mercado, 'favor'); assert.strictEqual(est.modelo, 'favor'); assert.strictEqual(est.contexto, 'favor');   /* casa 80% vs fuera 60% */
+  R.anotar(j, 'sp', 'sp', T0 + 60e3, { c: [-110, -110], l: -5.5 });
+  assert.strictEqual(Z.evaluar(j, 'sp', 0, idx).pts.find(p => p[0] === 'modelo')[1], 'sin');
+});
+t('fuerza: tenis por apellido aunque venga al revés', () => {
+  const j = R.nuevoJuego({ id: 'KX', dep: 'tenis', ts: T0 + HORA, st: 'pre', h: { ab: 'ALC', n: 'Carlos Alcaraz' }, a: { ab: 'SIN', n: 'Jannik Sinner' } }, 'Tenis ATP');
+  R.anotar(j, 'ml', 'ml', T0, { c: [110, -130] });
+  const e = Z.evaluar(j, 'ml', 0, Z.indexarRegistro(REG));
+  assert.ok(/42%/.test(e.pts.find(p => p[0] === 'modelo')[2]), JSON.stringify(e.pts));
+});
+t('fuerza: grupos para medir', () => {
+  assert.strictEqual(Z.grupo(4), '+3'); assert.strictEqual(Z.grupo(2), '+2'); assert.strictEqual(Z.grupo(0), '0'); assert.strictEqual(Z.grupo(-2), 'neg');
 });
 console.log((process.exitCode ? '✗ ' : '✓ ') + ok + ' pruebas pasaron');

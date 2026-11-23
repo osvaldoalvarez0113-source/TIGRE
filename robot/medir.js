@@ -11,6 +11,7 @@
 const { ganancia, dec } = require('./lib.js');
 const R = require('./registro.js');
 const { TRAMOS_P, margen } = require('./historia.js');
+const Z = require('./fuerza.js');
 
 /* resultado de un lado de un mercado con el marcador final (y el boxscore para props) */
 function resultado(mt, lado, l, j, box, m) {
@@ -85,6 +86,33 @@ function filasCalibracion(j, box) {
   return out;
 }
 
+/* filas de la ficha de fuerza de un juego terminado: el lado que tenía más fuerza al empezar, jugado a la cuota de cierre.
+   [dep, mercado, puntaje, a favor, puntos con dato, probabilidad del cierre, cuota de cierre, resultado 1 / 0 / 0.5] */
+function filasFuerza(j, box) {
+  const out = [];
+  Object.keys(j.fichaCierre || {}).forEach(mk => {
+    const f = j.fichaCierre[mk], m = j.m[mk], ci = j.cierre && j.cierre[mk];
+    if (!f || !m || !ci || !ci.c) return;
+    const p = R.probs(m.t, ci.c); if (!p || p[f.lado] == null) return;
+    const r = resultado(m.t, f.lado, R.lineaLado(m.t, ci.l, f.lado), j, box, m);
+    if (!r || r === 'nula') return;
+    out.push([j.dep, m.t, f.puntaje, f.favor, f.n, +p[f.lado].toFixed(3), ci.c[f.lado], r === 'gana' ? 1 : (r === 'push' ? 0.5 : 0)]);
+  });
+  return out;
+}
+const ORDEN_GRUPO = ['+3', '+2', '+1', '0', 'neg'];
+function tablaFuerza(filas) {
+  return ORDEN_GRUPO.map(gk => {
+    const x = filas.filter(f => Z.grupo(f[2]) === gk); if (!x.length) return null;
+    const sp = x.filter(f => f[7] !== 0.5), g = sp.filter(f => f[7] === 1).length;
+    const roi = x.reduce((a, f) => a + ganancia(f[6], f[7] === 1 ? 'gana' : (f[7] === 0.5 ? 'push' : 'pierde')), 0) / x.length * 100;
+    return { clave: gk, nombre: Z.NOM_GRUPO[gk], n: x.length,
+      gana: sp.length ? +(g / sp.length * 100).toFixed(1) : null,
+      promete: sp.length ? +(sp.reduce((a, f) => a + f[5], 0) / sp.length * 100).toFixed(1) : null,
+      margen: sp.length ? margen(g / sp.length, sp.length) : null, roi: +roi.toFixed(1) };
+  }).filter(Boolean);
+}
+
 /* ---------- tablas ---------- */
 function agregar(lista) {
   const v = lista.filter(s => s.res && s.res !== 'nula');
@@ -114,7 +142,7 @@ function unicas(senales) {
   senales.slice().sort((a, b) => a.t - b.t).forEach(s => { const k = s.jid + '|' + s.mk + '|' + s.tipo + '|' + s.lado; if (vistas.has(k)) return; vistas.add(k); out.push(s); });
   return out;
 }
-function tablas(todas, calib) {
+function tablas(todas, calib, fuerza) {
   const senales = unicas(todas);
   const out = { generado: null, total: agregar(senales), porTipo: [], porMercado: [], porTipoMercado: [], porDeporte: [], porNivel: [], porTramo: [], calibracion: {} };
   const grupos = (clave, nombre, lista) => {
@@ -125,6 +153,12 @@ function tablas(todas, calib) {
   out.porMercado = grupos(s => s.mt, k => NOM_MT[k] || k);
   out.porTipoMercado = grupos(s => s.tipo + '|' + s.mt, k => (NOM_TIPO[k.split('|')[0]] || k) + ' · ' + (NOM_MT[k.split('|')[1]] || ''));
   out.porTipoMercado.forEach(g => { g.veredicto = veredicto(g); });
+  /* ficha de fuerza: al cierre de cada juego (todos los juegos) y en las señales */
+  const fz = fuerza || [];
+  out.fuerzaCierre = { n: fz.length, todos: tablaFuerza(fz), porMercado: {} };
+  ['ml', 'sp', 'tot'].forEach(mt => { const x = fz.filter(f => f[1] === mt); if (x.length) out.fuerzaCierre.porMercado[mt] = { nombre: NOM_MT[mt], n: x.length, tramos: tablaFuerza(x) }; });
+  out.fuerzaSenales = grupos(s => (s.fz ? Z.grupo(s.fz.p) : null), k => Z.NOM_GRUPO[k] || k)
+    .sort((a, b) => ORDEN_GRUPO.indexOf(a.clave) - ORDEN_GRUPO.indexOf(b.clave));
   /* progreso hacia las 300 resueltas por tipo de señal × mercado (pendientes = las que esperan que termine su juego) */
   const prog = {};
   senales.forEach(s => {
@@ -160,4 +194,4 @@ function veredicto(g) {
   if (g.n >= 100 && g.roi <= -3) return 'pierde';
   return 'prueba';
 }
-module.exports = { unicas, veredicto, resultado, clv, resolverSenales, filasCalibracion, agregar, tablas, NOM_TIPO, NOM_MT, dec };
+module.exports = { filasFuerza, tablaFuerza, unicas, veredicto, resultado, clv, resolverSenales, filasCalibracion, agregar, tablas, NOM_TIPO, NOM_MT, dec };

@@ -65,6 +65,11 @@ td{padding:7px 4px;border-top:1px solid var(--line);text-align:right;font-varian
 .ahora.verde{border:1px solid rgba(52,211,153,.35)}.ahora.amarillo{border:1px solid rgba(251,191,36,.4)}.ahora.rojo{border:1px solid rgba(248,113,113,.4)}.ahora.gris{color:var(--mut)}
 .ayuda{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 12px;margin:8px 0}.ayuda .lista{padding-left:18px;font-size:13px;color:#d6d3cb}
 .barra{height:8px;border-radius:6px;background:var(--card2);overflow:hidden;margin-top:5px}.barra i{display:block;height:100%;background:linear-gradient(90deg,var(--naranja),var(--oro))}
+.ficha{margin-top:10px;padding:10px 11px;border-radius:13px;background:linear-gradient(180deg,rgba(245,158,11,.08),rgba(245,158,11,.02));border:1px solid rgba(245,158,11,.25)}
+.ficha .fila b{font-size:14.5px}.ficha .sub{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.puntos{margin-top:6px}.pto{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:4px 0;color:#d6d3cb}.pto>span{flex:none;width:18px}.pto b{color:var(--tx);font-weight:600}
+.pto.sin{opacity:.55}
+details.fz{margin-top:6px}details.fz summary{list-style:none}details.fz summary::-webkit-details-marker{display:none}
 .rec{margin-top:7px;padding-top:7px;border-top:1px dashed var(--line);font-size:12.5px}
 .sello{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:11.5px;font-weight:700;margin-right:4px}.sello.ok{color:var(--good);border-color:rgba(52,211,153,.4)}.sello.mal{color:var(--bad);border-color:rgba(248,113,113,.4)}
 .nota{color:var(--mut);font-size:12.5px;margin-top:8px}
@@ -160,6 +165,34 @@ const SELLO = { probada: '<span class="sello ok">✅ Probada</span>', pierde: '<
 const hayRecord = () => !!(D.med && (D.med.porTipoMercado || []).some(g => g.n > 0));
 function juegoDe(id) { if (!D._jx) { D._jx = {}; ((D.hoy && D.hoy.juegos) || []).forEach(g => { D._jx[g.id] = g; }); } return D._jx[id] || null; }
 
+/* ---------- ficha de fuerza ---------- */
+const PUNTO = { mercado: '📈 Mercado', modelo: '🧠 Modelo OVA', otros: '🔀 Otros mercados', contexto: '📋 Contexto' };
+const ESTADO = { favor: '✅', contra: '❌', neutro: '➖', sin: '⚪' };
+const grupoFz = p => (p >= 3 ? '+3' : (p <= -1 ? 'neg' : (p === 0 ? '0' : '+' + p)));
+const NOM_MK = { ml: 'Ganador', sp: 'Hándicap', tot: 'Total' };
+function insignia(f) {
+  const cl = f.puntaje >= 2 ? 'ok' : (f.puntaje <= -1 ? 'mal' : '');
+  return '<span class="sello ' + cl + '">💪 ' + (f.puntaje > 0 ? '+' : '') + f.puntaje + ' · ✅' + f.favor + ' ❌' + (f.contra || 0) + ' de ' + f.n + '</span>';
+}
+function puntosHtml(pts) {
+  return '<div class="puntos">' + pts.map(p => '<div class="pto ' + p[1] + '"><span>' + ESTADO[p[1]] + '</span><div><b>' + PUNTO[p[0]] + '</b> ' + esc(p[2]) + '</div></div>').join('') + '</div>';
+}
+function recordFicha(mt, puntaje) {
+  const fc = D.med && D.med.fuerzaCierre, x = fc && fc.porMercado && fc.porMercado[mt];
+  const g = x && (x.tramos || []).find(t => t.clave === grupoFz(puntaje));
+  if (!g || !g.n) return '<div class="rec">🧪 Todavía no hay juegos terminados con esta fuerza en ' + NOM_MK[mt].toLowerCase() + '. Se mide sola.</div>';
+  return '<div class="rec">Récord de las fichas ' + esc(g.nombre) + ' en ' + NOM_MK[mt].toLowerCase() + ': ' + pct(g.gana) + ' en ' + g.n + ' (prometía ' + pct(g.promete) + ') · ROI ' + sig(g.roi) + (g.n < 300 ? ' · 🧪 en prueba' : '') + '</div>';
+}
+function fichaHtml(g) {
+  const F = g.ficha; if (!F) return '';
+  const lado = (mk, f) => mk === 'tot' ? f.quien.replace(/^el /, '') + ' de ' + f.l : f.quien + (mk === 'sp' && f.l != null ? ' ' + fmtL(f.l) : '');
+  let h = '';
+  if (F.ml) h += '<div class="fila"><b>💪 Ficha · ' + (F.ml.quien === 'el empate' ? 'Empate' : esc(F.ml.quien) + ' gana') + '</b>' + insignia(F.ml) + '</div>' + puntosHtml(F.ml.pts) + recordFicha('ml', F.ml.puntaje);
+  const otros = ['sp', 'tot'].filter(k => F[k]);
+  if (otros.length) h += '<details><summary>💪 Hándicap y total</summary>' + otros.map(k => '<div class="sub"><div class="fila"><b>' + NOM_MK[k] + ' · ' + esc(lado(k, F[k])) + '</b>' + insignia(F[k]) + '</div>' + puntosHtml(F[k].pts) + recordFicha(k, F[k].puntaje) + '</div>').join('') + '</details>';
+  return h ? '<div class="ficha">' + h + '</div>' : '';
+}
+
 /* las señales del mismo juego + mercado + lado son un solo movimiento (sale como ⚡ y 📈, o sube de nivel) */
 function agrupar(lista) {
   const g = {};
@@ -215,6 +248,8 @@ function bloqueMov(mv) {
     const a = ahoraDe(mv); if (a) h += '<div class="ahora ' + a.sem + '">' + a.txt + '</div>';
     h += recordDe(mv);
   }
+  const fz = s.fz || (mv.sen.find(x => x.fz) || {}).fz;
+  if (fz && fz.pts) h += '<details class="fz"><summary>' + insignia({ puntaje: fz.p, favor: fz.f, contra: fz.c, n: fz.n }) + ' ¿por qué?</summary>' + puntosHtml(fz.pts) + '</details>';
   return h + '</div>';
 }
 function tarjetaPartido(movs) {
@@ -318,6 +353,7 @@ function pintarJuegos() {
     h += '<div class="card juego"><div class="fila"><span class="eq">' + (g.dep === 'tenis' ? esc(g.h.n) + ' vs ' + esc(g.a.n) : esc(g.a.n) + ' @ ' + esc(g.h.n)) + '</span><span class="meta">' + estado + '</span></div>' +
       '<div class="mk" style="border:0;padding-bottom:0"><span></span><span class="meta">Apertura</span><span class="meta">Ahora</span><span></span></div>' +
       ['ml', 'sp', 'tot', 'k'].filter(k => g.m[k]).map(k => filaMercado(g, k, g.m[k])).join('') +
+      fichaHtml(g) +
       (movs.length ? '<div class="meta" style="margin-top:6px">🎯 ' + (sj.length ? sj.length + (sj.length > 1 ? ' movimientos: ' : ' movimiento: ') + sj.slice(0, 3).map(m => m.tipos.map(t => ICON[t]).join('') + ' ' + esc(m.ult.txt)).join(' · ') : 'Sin movimientos del juego') + (np ? ' · 👤 ' + np + ' de props' : '') + '</div>' : '') +
       (props.length ? '<details><summary>👤 Props que se movieron (' + props.length + ')</summary>' + props.sort((a, b) => Math.abs(b.p[0] - b.po[0]) - Math.abs(a.p[0] - a.po[0])).slice(0, 25).map(m =>
         '<div class="mk"><span class="n" style="text-transform:none">' + esc(m.n || '') + '</span><span class="ab">' + m.abre.l + ' (' + cuota(m.abre.c[0]) + ')</span><span class="ah">' + m.ahora.l + ' (' + cuota(m.ahora.c[0]) + ')</span><span class="meta">' + esc(m.k) + '</span></div>').join('') + '</details>' : '') +
@@ -354,6 +390,16 @@ function pintarMedicion() {
     h += '<h2>Por deporte</h2>' + tabla(m.porDeporte, COLS_SEN);
     h += '<p class="nota"><b>Gana</b> = % de aciertos sin contar push. <b>Prometía</b> = lo que decía la cuota (sin margen) en el momento de la señal: si Gana queda por encima de Prometía con muchas señales, ahí hay algo. <b>ROI</b> = apostando 1 a la cuota de la señal. <b>En contra</b> = apostando al otro lado. <b>CLV +</b> = % de veces que el cierre terminó mejor para quien entró en la señal.</p>';
   }
+  const fc = m && m.fuerzaCierre;
+  h += '<h2>💪 Ficha de fuerza</h2>';
+  const COLS_FZ = [['Fuerza', f => esc(f.nombre)], ['N', f => f.n], ['Gana', f => pct(f.gana)], ['Prometía', f => pct(f.promete)], ['ROI', f => sig(f.roi)], ['±', f => f.margen == null ? '—' : f.margen]];
+  if (!fc || !fc.n) h += '<div class="aviso">Todavía no hay juegos terminados con ficha. Cada juego guarda su ficha al empezar y se mide al terminar, jugando el lado con más fuerza a la cuota de cierre.</div>';
+  else {
+    h += '<div class="card"><b>Al cierre de cada juego</b> <span class="meta">· ' + fc.n + ' mercados</span>' + tabla(fc.todos, COLS_FZ) +
+      '<p class="nota">La pregunta: ¿las fichas con más fuerza ganan más de lo que prometía su cuota de cierre? Si 💪💪💪 gana por encima de «Prometía» (más allá del ±) con cientos de juegos, la ficha sirve. Si no, es solo una explicación.</p></div>';
+    Object.values(fc.porMercado || {}).forEach(x => { h += '<details class="card"><summary>' + esc(x.nombre) + ' · ' + x.n + '</summary>' + tabla(x.tramos, COLS_FZ) + '</details>'; });
+  }
+  if (m && m.fuerzaSenales && m.fuerzaSenales.length) h += '<div class="card"><b>Señales según su fuerza</b>' + tabla(m.fuerzaSenales, COLS_SEN) + '</div>';
   const cal = m && m.calibracion ? Object.values(m.calibracion) : [];
   if (cal.length) {
     h += '<h2>¿Cuánto acierta cada cuota? (juegos propios)</h2>';
@@ -385,6 +431,14 @@ function pintarInfo() {
     <li><b>📈 Desde la apertura:</b> la línea ya se movió mucho desde que abrió la casa (ganador 5+ pts).</li>
     <li><b>🔀 Kalshi vs casa:</b> Kalshi y DraftKings no coinciden en el ganador por 4+ pts.</li>
   </ul><p class="nota">Cada señal guarda la cuota en ese momento. Cuando termina el juego se resuelve sola y se compara con la línea de cierre (CLV).</p></div>
+  <h2>💪 La ficha de fuerza</h2>
+  <div class="card"><p>Cada juego trae una ficha que dice <b>por qué</b> una línea tiene fuerza, con un dato en cada punto:</p><ul class="lista">
+    <li><b>📈 Mercado:</b> si la línea se movió hacia ese lado desde la apertura (ganador 2+ pts; hándicap y total medio punto de línea).</li>
+    <li><b>🧠 Modelo OVA:</b> si tu modelo le da 3+ pts más que la casa. Sale del robot de la liga de ODDX, solo se lee, no se toca nada.</li>
+    <li><b>🔀 Otros mercados:</b> si Kalshi o Polymarket le dan 2+ pts más que la casa (solo ganador).</li>
+    <li><b>📋 Contexto:</b> fútbol: puntos en los últimos 5 (3+ de diferencia). NBA, NHL, NFL y NCAA: % de victorias en casa contra fuera (10+ pts).</li>
+  </ul><p>✅ a favor · ❌ en contra · ➖ hay dato pero no inclina · ⚪ no hay dato. La fuerza = a favor − en contra. La ficha muestra el lado con más fuerza.</p>
+  <p class="nota">Ojo: en fútbol, en tu propia liga de modelos el mercado le gana al Modelo OVA. Por eso la ficha se mide sola: al empezar cada juego se guarda y al terminar se ve si las fichas fuertes ganan más de lo que prometía su cuota. Hasta que eso pase, la ficha explica, no garantiza.</p></div>
   <h2>Cómo leer la medición</h2>
   <div class="card"><p>La pregunta es una sola: <b>¿esa señal acierta más de lo que promete su cuota?</b> Si una señal promete 55% y gana 55%, no hay ventaja (y el margen de la casa te come). Solo vale la que gane claramente por encima, con cientos de casos, y que además deje el cierre a favor (CLV +).</p></div>
   <h2>Los sellos</h2>
