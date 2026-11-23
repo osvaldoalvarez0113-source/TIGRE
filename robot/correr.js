@@ -77,6 +77,14 @@ async function main() {
     console.log('limpieza de tenis: ' + fotos + ' fotos y ' + (antes - senales.length) + ' señales borradas');
   }
 
+  /* limpieza única: señales de hándicap ±1.5 de NHL/MLB que solo cambiaron de lado (antes de que se filtraran) */
+  if (!estado.limpiezaFlip) {
+    const antes = senales.length;
+    senales = senales.filter(s => !(!s.res && s.mt === 'sp' && (s.dep === 'nhl' || s.dep === 'mlb') && s.unidad === 'línea' && Math.abs(s.mag - 3) < 0.01));
+    estado.limpiezaFlip = AHORA;
+    console.log('limpieza ±1.5: ' + (antes - senales.length) + ' señales borradas');
+  }
+
   /* tenis (Kalshi): los partidos se crean desde los mercados abiertos; la foto es el precio de compra con comisión */
   for (const serie of Object.keys(C.TENIS)) {
     let lista = [];
