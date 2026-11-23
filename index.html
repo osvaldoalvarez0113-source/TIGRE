@@ -146,8 +146,8 @@ async function inicio() {
 }
 function pintarEstado() {
   const e = D.est;
-  if (!e) { $('#estado').innerHTML = '<span class="punto viejo"></span><span>Todavía no hay datos: el robot corre cada 30 minutos.</span>'; return; }
-  const t = Date.parse(e.ultima), viejo = Date.now() - t > 75 * 60000, u = e.ultimaVuelta || {};
+  if (!e) { $('#estado').innerHTML = '<span class="punto viejo"></span><span>Todavía no hay datos: el robot corre cada 10 minutos.</span>'; return; }
+  const t = Date.parse(e.ultima), viejo = Date.now() - t > 40 * 60000, u = e.ultimaVuelta || {};
   const conLinea = (D.hoy && D.hoy.juegos || []).length;
   $('#estado').innerHTML = '<span class="punto' + (viejo ? ' viejo' : '') + '"></span><span>Última vuelta ' + hace(t) + ' · ' + conLinea + ' juegos con línea' +
     (u.fotografiados > conLinea ? ' (de ' + u.fotografiados + ' vigilados)' : '') + (viejo ? ' · <b style="color:var(--bad)">el robot está atrasado</b>' : '') + '</span>';
@@ -302,7 +302,7 @@ function pintarJuegos() {
     '<li><b>Ganador:</b> el favorito de ahora con su probabilidad (sin el margen de la casa). Apertura → ahora; ▲▼ = cuántos puntos subió o bajó.</li>' +
     '<li><b>Hándicap y total:</b> la línea. ▲▼ = cuántos puntos de línea se movió (hándicap ▲ = el local más favorito; total ▲ = subió).</li>' +
     '<li><b>Kalshi:</b> el mismo equipo en Kalshi y en la casa. Si difieren 4+ pts sale la señal 🔀.</li>' +
-    '<li>La rayita de la derecha es cómo se ha movido desde que el robot la vigila.</li>' +
+    '<li>La rayita de la derecha es cómo se ha movido desde que el robot la vigila. Todo se actualiza cada 10 minutos.</li>' +
     '<li>Fútbol, NFL y NCAA Football: toda la semana. Lo demás: próximas 36 horas.</li></ul></details>';
   let liga = '';
   const vis = js.filter(g => pasaLiga(g.liga));
@@ -378,7 +378,7 @@ function pintarMedicion() {
 function pintarInfo() {
   $('#v-info').innerHTML = `
   <h2>Qué hace TIGRE</h2>
-  <div class="card"><p>Cada 30 minutos un robot en GitHub fotografía las líneas de <b>DraftKings</b> (vía ESPN) de los juegos de las próximas 36 horas —ganador, hándicap, total y props de jugador en NBA, NHL y NFL— y el precio de <b>Kalshi</b>. También NCAA Football y NCAA Básquet (ganador, hándicap y total: mercados más blandos que los profesionales). Fútbol: Premier, La Liga, Serie A, Bundesliga, Ligue 1, Champions, Europa League, MLS y Liga MX. La NFL y la NCAA Football se vigilan toda la semana (sus líneas se mueven de lunes a domingo). <b>Tenis</b> (ATP, WTA, Challenger y Copa Davis): ESPN no trae cuotas, así que sale de Kalshi, con el precio de compra y la comisión ya incluidos en la cuota. MLB y el tenis entran solos cuando empiece su temporada.</p></div>
+  <div class="card"><p>Cada 10 minutos un robot en GitHub fotografía las líneas de <b>DraftKings</b> (vía ESPN) de los juegos de las próximas 36 horas —ganador, hándicap, total y props de jugador en NBA, NHL y NFL— y el precio de <b>Kalshi</b>. También NCAA Football y NCAA Básquet (ganador, hándicap y total: mercados más blandos que los profesionales). Fútbol: Premier, La Liga, Serie A, Bundesliga, Ligue 1, Champions, Europa League, MLS y Liga MX. La NFL y la NCAA Football se vigilan toda la semana (sus líneas se mueven de lunes a domingo). <b>Tenis</b> (ATP, WTA, Challenger y Copa Davis): ESPN no trae cuotas, así que sale de Kalshi, con el precio de compra y la comisión ya incluidos en la cuota. MLB y el tenis entran solos cuando empiece su temporada.</p></div>
   <h2>Las señales</h2>
   <div class="card"><ul class="lista">
     <li><b>⚡ Rápido:</b> el mercado se movió fuerte en las últimas 2 horas (ganador 3+ pts de probabilidad; hándicap/total según el deporte; props 1 punto de línea o 8 pts de precio).</li>
@@ -397,7 +397,7 @@ function pintarInfo() {
   <div class="aviso">Nada de plata real hasta tener 300–500 señales resueltas de ese tipo. Si después de medir ninguna señal pasa, también es un resultado: te ahorra perder.</div>
   <h2>Lo que hay que saber</h2>
   <div class="card"><ul class="lista">
-    <li>El robot corre cada 30 min: no caza movimientos de segundos. Su ventaja es medir qué tipo de movimiento funciona.</li>
+    <li>El robot corre cada 10 min: no caza movimientos de segundos. Su ventaja es medir qué tipo de movimiento funciona. Los avisos se juntan y te llegan como mucho cada 25 min (los movimientos fuertes, enseguida).</li>
     <li>En el estudio histórico, entrar temprano al lado que después sube rinde, y seguir el movimiento tarde pierde: el valor está antes del movimiento, no después.</li>
     <li>Las casas limitan a los que ganan; Kalshi es un mercado entre personas y eso pasa mucho menos.</li>
     <li>No soy asesor financiero: esto es una herramienta de medición, no una garantía.</li>

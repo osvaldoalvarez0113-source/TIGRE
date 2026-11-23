@@ -1,6 +1,6 @@
 'use strict';
 /* ===================================================================
-   TIGRE · ROBOT (GitHub Actions cada 30 min: .github/workflows/tigre.yml)
+   TIGRE · ROBOT (GitHub Actions cada 10 min por el reloj externo: .github/workflows/tigre.yml)
    Uso: node robot/correr.js <carpeta de datos>   (la carpeta es la rama «datos»)
 
    En cada vuelta:
@@ -162,7 +162,7 @@ async function main() {
     }
     if (j.st !== 'pre' && Object.keys(j.m).length && !j.cierre) {
       R.fijarCierre(j);
-      /* si ESPN ya trae el cierre oficial de DraftKings, ese manda (la última foto puede tener hasta 30 min o más) */
+      /* si ESPN ya trae el cierre oficial de DraftKings, ese manda (la última foto puede tener hasta 10 min o más) */
       try {
         DIAG.pedidos++;
         const o = await F.bajarOdds(j.dep, j.id);
@@ -237,11 +237,20 @@ async function main() {
   if (hist) escribir('historia.json', hist);
 
   /* ---------- 9. avisos ---------- */
+  /* el robot corre cada 10 min: para no llenar el teléfono, los avisos se juntan y salen como mucho cada 25 min,
+     salvo que haya un movimiento fuerte (2× o más) del ganador, hándicap o total, que sale enseguida */
   const avisables = nuevas.filter(s => s.mt !== 'prop' || s.nivel >= 2);
+  estado.cola = (estado.cola || []).concat(primera ? [] : avisables.map(s => s.id));
+  const porId = {}; senales.forEach(s => { porId[s.id] = s; });
+  const cola = [...new Set(estado.cola)].map(id => porId[id]).filter(s => s && !s.res && s.ts > AHORA);   /* solo juegos que no han empezado */
+  const urgente = cola.some(s => s.mt !== 'prop' && s.nivel >= 2);
+  const toca = AHORA - (estado.ultimoAviso || 0) >= 25 * 60e3;
   let aviso = 'sin avisos';
-  if (!primera && avisables.length && process.env.NTFY_TOPIC) aviso = await avisar(avisables, tab);
-  else if (primera) aviso = 'primera vuelta: no se avisa (todas las señales serían de golpe)';
-  else if (!process.env.NTFY_TOPIC && avisables.length) aviso = 'falta el secreto NTFY_TOPIC';
+  if (primera) { aviso = 'primera vuelta: no se avisa (todas las señales serían de golpe)'; estado.cola = []; }
+  else if (!cola.length) estado.cola = [];
+  else if (!process.env.NTFY_TOPIC) { aviso = 'falta el secreto NTFY_TOPIC'; estado.cola = []; }
+  else if (toca || urgente) { aviso = await avisar(cola, tab); if (/^enviado/.test(aviso)) { estado.cola = []; estado.ultimoAviso = AHORA; } }
+  else { aviso = 'en cola (' + cola.length + '), sale en la próxima tanda'; estado.cola = cola.map(s => s.id); }
 
   /* ---------- 10. estado ---------- */
   Object.keys(estado.vistas).forEach(k => { if (AHORA - estado.vistas[k] > 10 * DIA) delete estado.vistas[k]; });
