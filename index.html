@@ -16,7 +16,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
 body{padding:env(safe-area-inset-top) 0 calc(76px + env(safe-area-inset-bottom))}
-header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#0b0b0d 70%,rgba(11,11,13,0));padding:14px 16px 10px}
+header{position:sticky;top:0;z-index:5;background:var(--bg);box-shadow:0 10px 14px -6px var(--bg);padding:14px 16px 10px}
 .marca{display:flex;align-items:center;gap:10px}
 .marca .logo{width:38px;height:38px;border-radius:11px;background:conic-gradient(from 200deg,#f59e0b,#fb923c,#111 40%,#f59e0b 55%,#111 70%,#fb923c);display:grid;place-items:center;font-weight:900;color:#0b0b0d;font-size:20px;box-shadow:0 0 18px rgba(245,158,11,.35)}
 .marca h1{margin:0;font-size:22px;letter-spacing:.12em;font-weight:900}
@@ -66,12 +66,12 @@ td{padding:7px 4px;border-top:1px solid var(--line);text-align:right;font-varian
 .ayuda{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 12px;margin:8px 0}.ayuda .lista{padding-left:18px;font-size:13px;color:#d6d3cb}
 .barra{height:8px;border-radius:6px;background:var(--card2);overflow:hidden;margin-top:5px}.barra i{display:block;height:100%;background:linear-gradient(90deg,var(--naranja),var(--oro))}
 .ficha{margin-top:10px;padding:10px 11px;border-radius:13px;background:linear-gradient(180deg,rgba(245,158,11,.08),rgba(245,158,11,.02));border:1px solid rgba(245,158,11,.25)}
-.ficha .fila b{font-size:14.5px}.ficha .sub{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.ficha .fila{flex-wrap:wrap;row-gap:4px}.ficha .fila b{font-size:14.5px}.ficha .sub{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
 .puntos{margin-top:6px}.pto{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:4px 0;color:#d6d3cb}.pto>span{flex:none;width:18px}.pto b{color:var(--tx);font-weight:600}
 .pto.sin{opacity:.55}
 details.fz{margin-top:6px}details.fz summary{list-style:none}details.fz summary::-webkit-details-marker{display:none}
 .rec{margin-top:7px;padding-top:7px;border-top:1px dashed var(--line);font-size:12.5px}
-.sello{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:11.5px;font-weight:700;margin-right:4px}.sello.ok{color:var(--good);border-color:rgba(52,211,153,.4)}.sello.mal{color:var(--bad);border-color:rgba(248,113,113,.4)}
+.sello{display:inline-block;white-space:nowrap;padding:2px 8px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:11.5px;font-weight:700;margin-right:4px}.sello.ok{color:var(--good);border-color:rgba(52,211,153,.4)}.sello.mal{color:var(--bad);border-color:rgba(248,113,113,.4)}
 .nota{color:var(--mut);font-size:12.5px;margin-top:8px}
 .aviso{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:14px;padding:11px 13px;font-size:13.5px;margin:10px 0}
 .pos{color:var(--good)}.neg{color:var(--bad)}
@@ -154,8 +154,8 @@ function pintarEstado() {
   if (!e) { $('#estado').innerHTML = '<span class="punto viejo"></span><span>Todavía no hay datos: el robot corre cada 10 minutos.</span>'; return; }
   const t = Date.parse(e.ultima), viejo = Date.now() - t > 40 * 60000, u = e.ultimaVuelta || {};
   const conLinea = (D.hoy && D.hoy.juegos || []).length;
-  $('#estado').innerHTML = '<span class="punto' + (viejo ? ' viejo' : '') + '"></span><span>Última vuelta ' + hace(t) + ' · ' + conLinea + ' juegos con línea' +
-    (u.fotografiados > conLinea ? ' (de ' + u.fotografiados + ' vigilados)' : '') + (viejo ? ' · <b style="color:var(--bad)">el robot está atrasado</b>' : '') + '</span>';
+  $('#estado').innerHTML = '<span class="punto' + (viejo ? ' viejo' : '') + '"></span><span>Vuelta ' + hace(t) + ' · ' + conLinea + ' con línea' +
+    (u.fotografiados > conLinea ? ' · ' + u.fotografiados + ' vigilados' : '') + (viejo ? ' · <b style="color:var(--bad)">el robot está atrasado</b>' : '') + '</span>';
 }
 /* ---------- utilidades de cuotas ---------- */
 const imp = a => (a == null ? null : (a > 0 ? 100 / (a + 100) : -a / (-a + 100)));
@@ -331,7 +331,8 @@ function pintarJuegos() {
   const js = (D.hoy && D.hoy.juegos) || [];
   if (!js.length) { $('#v-juegos').innerHTML = '<div class="vacio">Sin juegos vigilados ahora mismo.</div>'; return; }
   const orden = DEPORTES.flatMap(d => d[2]);
-  js.sort((a, b) => ((orden.indexOf(a.liga) + 1 || 99) - (orden.indexOf(b.liga) + 1 || 99)) || (a.ts - b.ts));
+  const etapa = g => (g.st === 'pre' ? 0 : (g.st === 'in' ? 1 : 2));          /* primero lo que todavía se puede jugar */
+  js.sort((a, b) => ((orden.indexOf(a.liga) + 1 || 99) - (orden.indexOf(b.liga) + 1 || 99)) || (etapa(a) - etapa(b)) || (a.ts - b.ts));
   let h = chipsLigas(js.map(g => g.liga));
   h += '<details class="ayuda"><summary>¿Cómo leo esto?</summary><ul class="lista">' +
     '<li><b>Ganador:</b> el favorito de ahora con su probabilidad (sin el margen de la casa). Apertura → ahora; ▲▼ = cuántos puntos subió o bajó.</li>' +
@@ -395,6 +396,7 @@ function pintarMedicion() {
   const COLS_FZ = [['Fuerza', f => esc(f.nombre)], ['N', f => f.n], ['Gana', f => pct(f.gana)], ['Prometía', f => pct(f.promete)], ['ROI', f => sig(f.roi)], ['±', f => f.margen == null ? '—' : f.margen]];
   if (!fc || !fc.n) h += '<div class="aviso">Todavía no hay juegos terminados con ficha. Cada juego guarda su ficha al empezar y se mide al terminar, jugando el lado con más fuerza a la cuota de cierre.</div>';
   else {
+    if (fc.completas && fc.completas.length) h += '<div class="card"><b>Solo fichas completas</b> <span class="meta">· 3 o 4 puntos con dato (la más confiable)</span>' + tabla(fc.completas, COLS_FZ) + '</div>';
     h += '<div class="card"><b>Al cierre de cada juego</b> <span class="meta">· ' + fc.n + ' mercados</span>' + tabla(fc.todos, COLS_FZ) +
       '<p class="nota">La pregunta: ¿las fichas con más fuerza ganan más de lo que prometía su cuota de cierre? Si 💪💪💪 gana por encima de «Prometía» (más allá del ±) con cientos de juegos, la ficha sirve. Si no, es solo una explicación.</p></div>';
     Object.values(fc.porMercado || {}).forEach(x => { h += '<details class="card"><summary>' + esc(x.nombre) + ' · ' + x.n + '</summary>' + tabla(x.tramos, COLS_FZ) + '</details>'; });

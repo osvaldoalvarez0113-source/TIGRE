@@ -155,7 +155,7 @@ function tablas(todas, calib, fuerza) {
   out.porTipoMercado.forEach(g => { g.veredicto = veredicto(g); });
   /* ficha de fuerza: al cierre de cada juego (todos los juegos) y en las señales */
   const fz = fuerza || [];
-  out.fuerzaCierre = { n: fz.length, todos: tablaFuerza(fz), porMercado: {} };
+  out.fuerzaCierre = { n: fz.length, todos: tablaFuerza(fz), completas: tablaFuerza(fz.filter(f => f[4] >= 3)), porMercado: {} };
   ['ml', 'sp', 'tot'].forEach(mt => { const x = fz.filter(f => f[1] === mt); if (x.length) out.fuerzaCierre.porMercado[mt] = { nombre: NOM_MT[mt], n: x.length, tramos: tablaFuerza(x) }; });
   out.fuerzaSenales = grupos(s => (s.fz ? Z.grupo(s.fz.p) : null), k => Z.NOM_GRUPO[k] || k)
     .sort((a, b) => ORDEN_GRUPO.indexOf(a.clave) - ORDEN_GRUPO.indexOf(b.clave));
