@@ -77,4 +77,24 @@ const HORAS_RAPIDO = 2;        // «movimiento rápido» = en las últimas 2 h
 function umbral(dep) { return UMBRAL[dep] || UMBRAL.futbol; }
 function horas(dep) { return (LIGAS[dep] && LIGAS[dep].horas) || HORAS_ADELANTE; }
 
-module.exports = { TENIS, KALSHI_COMISION, KALSHI_SPREAD_MAX, KALSHI_PRECIO, KALSHI_LIQUIDEZ, LIGAS, PROPS, UMBRAL, KALSHI_DIF, HORAS_ADELANTE, HORAS_PROPS, HORAS_RAPIDO, umbral, horas };
+/* qué señales llegan al teléfono (todas se siguen midiendo igual en la página).
+   23 nov 2026, con 757 resueltas:
+   - props: 40.5% (prometían 46.3%) → no se avisan
+   - tenis ganador con 💪 +1: 53% fuera de los favoritazos y pierde unidades; los de −400 o más aciertan pero no pagan → no se avisa
+   - NCAA Básquet: ganador 73% y hándicap 57%, los dos en verde; total 45% → se avisa ganador y hándicap
+   - resto de deportes: ganador con 💪 +1 o más
+   Ojo: el filtro salió de los mismos datos que mide; hay que confirmarlo con las señales que vengan. */
+const AVISOS = {
+  props: false,                         // props de jugador: no se avisan
+  sinAviso: ['tenis'],                  // deportes que se miden pero no se avisan
+  ganadorFuerzaMin: 1,                  // ganador: solo con ficha de fuerza +1 o más
+  completos: { ncaab: ['ml', 'sp'] }    // deporte → mercados que se avisan sin pedir fuerza
+};
+function avisable(s) {
+  if (s.mt === 'prop') return AVISOS.props && s.nivel >= 2;
+  if (AVISOS.sinAviso.includes(s.dep)) return false;
+  if (AVISOS.completos[s.dep]) return AVISOS.completos[s.dep].includes(s.mt);
+  return s.mt === 'ml' && !!s.fz && s.fz.p >= AVISOS.ganadorFuerzaMin;
+}
+
+module.exports = { AVISOS, avisable, TENIS, KALSHI_COMISION, KALSHI_SPREAD_MAX, KALSHI_PRECIO, KALSHI_LIQUIDEZ, LIGAS, PROPS, UMBRAL, KALSHI_DIF, HORAS_ADELANTE, HORAS_PROPS, HORAS_RAPIDO, umbral, horas };

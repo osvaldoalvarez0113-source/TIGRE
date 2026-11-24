@@ -1,6 +1,7 @@
 'use strict';
 /* TIGRE · pruebas sin red (node robot/pruebas.js). Si algo falla, el robot no corre. */
 const assert = require('assert');
+const C = require('./config.js');
 const L = require('./lib.js'), F = require('./fuentes.js'), R = require('./registro.js'), M = require('./medir.js'), H = require('./historia.js'), Z = require('./fuerza.js'), A = require('./anticipado.js');
 let ok = 0; const t = (n, f) => { try { f(); ok++; } catch (e) { console.log('✗ ' + n + ': ' + e.message); process.exitCode = 1; } };
 const HORA = 36e5;
@@ -284,5 +285,16 @@ t('anticipado: se resuelve al precio temprano, al cierre y con CLV', () => {
   assert.strictEqual(a[0].clvLinea, 2); assert.strictEqual(a[0].clvSigno, 1);
   const t2 = M.tablaAnticipados(a);
   assert.strictEqual(t2.porTipo[0].n, 1); assert.strictEqual(t2.porTipo[0].roiCierre, -100); assert.strictEqual(t2.porFuerza[0].clave, '+2');
+});
+t('avisos: sin props ni tenis; ganador con fuerza +1; NCAA Básquet ganador y hándicap', () => {
+  assert.strictEqual(C.avisable({ mt: 'prop', dep: 'nba', nivel: 3 }), false);
+  assert.strictEqual(C.avisable({ mt: 'prop', dep: 'ncaab', nivel: 3 }), false);
+  assert.strictEqual(C.avisable({ mt: 'ml', dep: 'nba', fz: { p: 1 } }), true);
+  assert.strictEqual(C.avisable({ mt: 'ml', dep: 'tenis', fz: { p: 2 } }), false);
+  assert.strictEqual(C.avisable({ mt: 'ml', dep: 'nhl', fz: { p: 0 } }), false);
+  assert.strictEqual(C.avisable({ mt: 'ml', dep: 'nba' }), false);
+  assert.strictEqual(C.avisable({ mt: 'sp', dep: 'nba', fz: { p: 2 } }), false);
+  assert.strictEqual(C.avisable({ mt: 'sp', dep: 'ncaab' }), true);
+  assert.strictEqual(C.avisable({ mt: 'tot', dep: 'ncaab' }), false);
 });
 console.log((process.exitCode ? '✗ ' : '✓ ') + ok + ' pruebas pasaron');

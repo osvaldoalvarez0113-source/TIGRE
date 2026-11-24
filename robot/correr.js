@@ -264,8 +264,9 @@ async function main() {
 
   /* ---------- 9. avisos ---------- */
   /* el robot corre cada 10 min: para no llenar el teléfono, los avisos se juntan y salen como mucho cada 25 min,
-     salvo que haya un movimiento fuerte (2× o más) del ganador, hándicap o total, que sale enseguida */
-  const avisables = nuevas.filter(s => s.mt !== 'prop' || s.nivel >= 2);
+     salvo que haya un movimiento fuerte (2× o más) del ganador, hándicap o total, que sale enseguida.
+     Qué se avisa lo decide C.avisable (config.js): sin props; ganador con 💪 +1 o más; NCAA Básquet completo */
+  const avisables = nuevas.filter(C.avisable);
   estado.cola = (estado.cola || []).concat(primera ? [] : avisables.map(s => s.id));
   const porId = {}; senales.forEach(s => { porId[s.id] = s; });
   const cola = [...new Set(estado.cola)].map(id => porId[id]).filter(s => s && !s.res && s.ts > AHORA);   /* solo juegos que no han empezado */
