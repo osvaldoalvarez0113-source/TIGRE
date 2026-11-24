@@ -297,4 +297,12 @@ t('avisos: sin props ni tenis; ganador con fuerza +1; NCAA Básquet ganador y h�
   assert.strictEqual(C.avisable({ mt: 'sp', dep: 'ncaab' }), true);
   assert.strictEqual(C.avisable({ mt: 'tot', dep: 'ncaab' }), false);
 });
+t('récord limpio de avisos: solo cuenta desde la regla nueva', () => {
+  const d = C.AVISOS.desde;
+  const base = { jid: '1', mk: 'ml', mt: 'ml', tipo: 'rapido', dep: 'ncaab', p: 0.5, c: 100 };
+  const sen = [Object.assign({}, base, { t: d - 1, lado: 0, res: 'gana', g: 1 }), Object.assign({}, base, { jid: '2', t: d + 1, lado: 0, res: 'pierde', g: -1 }),
+    Object.assign({}, base, { jid: '3', t: d + 2, lado: 0, mt: 'prop', mk: 'p1', res: 'gana', g: 1 })];
+  const tab = M.tablas(sen, [], []);
+  assert.strictEqual(tab.avisos.total.n, 1); assert.strictEqual(tab.avisos.total.gana, 0); assert.strictEqual(tab.avisos.antes.n, 1);
+});
 console.log((process.exitCode ? '✗ ' : '✓ ') + ok + ' pruebas pasaron');

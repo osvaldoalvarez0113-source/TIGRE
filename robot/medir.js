@@ -10,6 +10,7 @@
    =================================================================== */
 const { ganancia, dec } = require('./lib.js');
 const R = require('./registro.js');
+const C = require('./config.js');
 const { TRAMOS_P, margen } = require('./historia.js');
 const Z = require('./fuerza.js');
 
@@ -186,6 +187,15 @@ function tablas(todas, calib, fuerza) {
   const meter = (lista, de) => (lista || []).forEach(g => { if (g.n >= 30 && g.gana != null) cand.push({ nombre: g.nombre, de, n: g.n, gana: g.gana, promete: g.promete, roi: g.roi, margen: g.margen, acierto: acierto(g) }); });
   meter(out.porTipoMercado, 'Señal'); meter(out.porDeporte, 'Deporte'); meter(out.porTramo, 'Tramo de cuota'); meter(out.fuerzaSenales, 'Señal por fuerza');
   meter(out.fuerzaCierre.todos, 'Ficha al cierre'); Object.values(out.fuerzaCierre.porMercado).forEach(x => meter(x.tramos, 'Ficha · ' + x.nombre));
+  /* 📲 récord de lo que se avisa: «limpio» empieza en cero con la regla nueva (no se usó para armarla);
+     «antes» = las mismas reglas sobre las señales viejas (con eso se eligió la regla: sale inflado) */
+  const av = senales.filter(C.avisable);
+  const limpio = av.filter(s => s.t >= C.AVISOS.desde), antes = av.filter(s => s.t < C.AVISOS.desde);
+  const gruposDe = (lista, clave, nombre) => { const g = {}; lista.forEach(s => (g[clave(s)] = g[clave(s)] || []).push(s));
+    return Object.keys(g).map(k => Object.assign({ clave: k, nombre: nombre(k) }, agregar(g[k]) || { n: 0 })).filter(x => x.n > 0).sort((a, b) => b.n - a.n); };
+  out.avisos = { desde: new Date(C.AVISOS.desde).toISOString(), total: agregar(limpio), pendientes: limpio.filter(s => !s.res).length,
+    porDeporte: gruposDe(limpio, s => s.dep + '|' + s.mt, k => k.split('|')[0].toUpperCase() + ' · ' + (NOM_MT[k.split('|')[1]] || '')),
+    antes: agregar(antes) };
   out.masAciertan = cand.sort((a, b) => b.gana - a.gana || b.n - a.n).slice(0, 12);
   return out;
 }

@@ -436,6 +436,15 @@ function pintarMedicion() {
   const m = D.med; let h = '';
   const n = m && m.total ? m.total.n : 0;
   const ma = (m && m.masAciertan) || [];
+  const av = m && m.avisos;
+  if (av) {
+    const ta = av.total, nn = ta ? ta.n : 0;
+    h += '<h2>📲 Lo que te avisa (récord limpio)</h2><div class="card">' +
+      (nn ? '<div class="resumen"><div class="card"><div class="grande">' + nn + '</div><div class="meta">resueltos</div></div><div class="card"><div class="grande">🎯 ' + pct(ta.gana) + '</div><div class="meta">aciertan (prometían ' + pct(ta.promete) + ')</div></div><div class="card"><div class="grande">' + sig(ta.roi) + '</div><div class="meta">rendimiento</div></div></div>' + tabla(av.porDeporte, COLS_SEN)
+        : '<p class="nota" style="margin:0 0 6px">Empieza en cero. Todavía no termina ningún juego avisado' + (av.pendientes ? ' (van ' + av.pendientes + ' esperando)' : '') + '.</p>') +
+      '<p class="nota">Solo cuenta lo que llega al teléfono (sin props ni tenis; ganador con 💪 +1; NCAA Básquet ganador y hándicap), desde el ' + new Date(av.desde).toLocaleString('es-US', { timeZone: 'America/Chicago', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) + '. Este es el número que vale: la regla se armó con las señales de antes' +
+      (av.antes ? ' (ahí daba ' + pct(av.antes.gana) + ' y ' + sig(av.antes.roi) + ' en ' + av.antes.n + ', inflado por eso)' : '') + '. Todo lo demás se sigue midiendo abajo.</p></div>';
+  }
   h += '<h2>🎯 Lo que más acierta</h2>';
   if (!ma.length) h += '<div class="aviso">Todavía ningún grupo tiene 30 resueltas. Aquí van a salir, de mayor a menor, las señales y fichas que más aciertan.</div>';
   else h += '<div class="card">' + tabla(ma, [['Qué', x => esc(x.nombre) + '<div class="meta">' + esc(x.de) + '</div>'], ['N', x => x.n], ['Acierta', x => '<b>' + pct(x.gana) + '</b>'], ['Prometía', x => pct(x.promete)], ['ROI', x => sig(x.roi)], ['', x => ({ alto: '🎯', va: '🎯?' }[x.acierto] || '')]]) +

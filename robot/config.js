@@ -85,6 +85,7 @@ function horas(dep) { return (LIGAS[dep] && LIGAS[dep].horas) || HORAS_ADELANTE;
    - resto de deportes: ganador con 💪 +1 o más
    Ojo: el filtro salió de los mismos datos que mide; hay que confirmarlo con las señales que vengan. */
 const AVISOS = {
+  desde: Date.parse('2026-11-24T02:50:00Z'),   // récord limpio de avisos: empieza en cero el 23 nov 2026, 8:50 pm (Chicago)
   props: false,                         // props de jugador: no se avisan
   sinAviso: ['tenis'],                  // deportes que se miden pero no se avisan
   ganadorFuerzaMin: 1,                  // ganador: solo con ficha de fuerza +1 o más
