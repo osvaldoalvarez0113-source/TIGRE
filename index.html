@@ -149,7 +149,10 @@ async function cargar(f) { try { const r = await fetch(BASE + f + '?v=' + Math.f
 async function inicio() {
   const [hoy, sen, med, hist, est, ant] = await Promise.all(['hoy.json', 'senales-recientes.json', 'medicion.json', 'historia.json', 'estado.json', 'anticipados-recientes.json'].map(cargar));
   Object.assign(D, { hoy, sen: sen || [], med, hist, est, ant: ant || [], _jx: null });
-  pintarEstado(); pintarSenales(); pintarAntes(); pintarJuegos(); pintarMedicion(); pintarInfo();
+  /* cada pestaña se pinta por su cuenta: si una falla, las demás salen igual */
+  [['estado', pintarEstado], ['v-senales', pintarSenales], ['v-antes', pintarAntes], ['v-juegos', pintarJuegos], ['v-medir', pintarMedicion], ['v-info', pintarInfo]].forEach(([id, f]) => {
+    try { f(); } catch (e) { console.error(e); const x = document.getElementById(id); if (x) x.innerHTML = '<div class="vacio">⚠️ Esta pestaña tuvo un error al pintarse (' + esc(e.message) + '). Las demás siguen bien.</div>'; }
+  });
 }
 function pintarEstado() {
   const e = D.est;
@@ -391,6 +394,8 @@ function filaMercado(g, k, m) {
   } else return '';
   return '<div class="mk"><span class="n">' + nom + '</span><span class="ab">' + ab + '</span><span class="ah">' + ah + flecha + '</span>' + spark(m.serie, m.t) + '</div>';
 }
+/* cuánto se movió un prop (si la casa abrió con precios raros, «po» viene vacío y cuenta 0) */
+const movProp = m => (m.p && m.po ? Math.abs(m.p[0] - m.po[0]) : 0);
 function pintarJuegos() {
   const js = (D.hoy && D.hoy.juegos) || [];
   if (!js.length) { $('#v-juegos').innerHTML = '<div class="vacio">Sin juegos vigilados ahora mismo.</div>'; return; }
@@ -420,8 +425,8 @@ function pintarJuegos() {
       ['ml', 'sp', 'tot', 'k'].filter(k => g.m[k]).map(k => filaMercado(g, k, g.m[k])).join('') +
       fichaHtml(g) +
       (movs.length ? '<div class="meta" style="margin-top:6px">🎯 ' + (sj.length ? sj.length + (sj.length > 1 ? ' movimientos: ' : ' movimiento: ') + sj.slice(0, 3).map(m => m.tipos.map(t => ICON[t]).join('') + ' ' + esc(m.ult.txt)).join(' · ') : 'Sin movimientos del juego') + (np ? ' · 👤 ' + np + ' de props' : '') + '</div>' : '') +
-      (props.length ? '<details><summary>👤 Props que se movieron (' + props.length + ')</summary>' + props.sort((a, b) => Math.abs(b.p[0] - b.po[0]) - Math.abs(a.p[0] - a.po[0])).slice(0, 25).map(m =>
-        '<div class="mk"><span class="n" style="text-transform:none">' + esc(m.n || '') + '</span><span class="ab">' + m.abre.l + ' (' + cuota(m.abre.c[0]) + ')</span><span class="ah">' + m.ahora.l + ' (' + cuota(m.ahora.c[0]) + ')</span><span class="meta">' + esc(m.k) + '</span></div>').join('') + '</details>' : '') +
+      (props.length ? '<details><summary>👤 Props que se movieron (' + props.length + ')</summary>' + props.sort((a, b) => movProp(b) - movProp(a)).slice(0, 25).map(m =>
+        '<div class="mk"><span class="n" style="text-transform:none">' + esc(m.n || '') + '</span><span class="ab">' + (m.abre ? m.abre.l + ' (' + cuota(m.abre.c[0]) + ')' : '—') + '</span><span class="ah">' + m.ahora.l + ' (' + cuota(m.ahora.c[0]) + ')</span><span class="meta">' + esc(m.k) + '</span></div>').join('') + '</details>' : '') +
       '</div>';
   });
   $('#v-juegos').innerHTML = h;
